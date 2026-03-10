@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Wave Game</title>
+let score = 0;
 <style>
 body{
   margin:0;
@@ -45,16 +46,20 @@ document.addEventListener("keyup", e=>{
 });
 
 function spawnSaw(){
+function spawnSaw(){
   let y = Math.random() * canvas.height;
+
+  let sizeIncrease = score * 0.3;
+
   saws.push({
     x:canvas.width + 40,
     y:y,
-    r:20
+    r:20 + sizeIncrease
   });
 }
 
 function update(){
-
+  score += 0.05;
   if(gameOver) return;
 
   frame++;
@@ -101,7 +106,9 @@ function drawSaw(x,y,r){
 }
 
 function draw(){
-
+  ctx.fillStyle="white";
+ctx.font="20px Arial";
+ctx.fillText("Score: " + Math.floor(score), 10, 25);
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   ctx.fillStyle="cyan";
