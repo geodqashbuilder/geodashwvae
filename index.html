@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival Fixed</title>
+<title>Wave Survival Buttons Fixed</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;font-family:Arial;}
 canvas{display:block;margin:auto;background:#111;}
@@ -33,6 +33,11 @@ let selectedSkin = Object.keys(skins).find(k=>skins[k]);
 let achievements = JSON.parse(localStorage.getItem("ach"))||{score100:false,coins100:false};
 function save(){localStorage.setItem("coins",totalCoins); localStorage.setItem("ownedAbilities",JSON.stringify(ownedAbilities)); localStorage.setItem("skins",JSON.stringify(skins)); localStorage.setItem("ach",JSON.stringify(achievements));}
 
+// ===== BUTTON MANAGEMENT =====
+let menuButtons=[];
+function clearButtons(){menuButtons.forEach(b=>b.remove()); menuButtons=[];}
+function createMenuButton(text,x,y,click){let b=document.createElement("button"); b.style.left=x+"px"; b.style.top=y+"px"; b.textContent=text; b.onclick=click; document.body.appendChild(b); menuButtons.push(b); return b;}
+
 // ===== AUDIO =====
 const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 function play(freq,dur){let o=audioCtx.createOscillator(); let g=audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value=freq; g.gain.setValueAtTime(0.1,audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur); o.start(); o.stop(audioCtx.currentTime+dur);}
@@ -47,13 +52,13 @@ function resetGame(){
 
 // ===== INPUT =====
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){state="menu";}
+  if(e.key==="Escape"){state="menu"; clearButtons();}
   if(state==="menu"){
     if(e.key==="Enter"){state="game"; resetGame();}
-    if(e.key==="s") state="shop";
-    if(e.key==="a") state="achievements";
-    if(e.key==="k") state="abilities";
-    if(e.key==="c") state="skins";
+    if(e.key==="s"){state="shop"; setupShop();}
+    if(e.key==="a"){state="achievements"; setupAchievements();}
+    if(e.key==="k"){state="abilities"; setupAbilities();}
+    if(e.key==="c"){state="skins"; setupSkins();}
   }
   if(state==="game"){if(e.key==="w"||e.key==="ArrowUp") goingUp=true;}
   if(state==="gameover"){if(e.key==="r"){state="game"; resetGame();}}
@@ -103,28 +108,33 @@ function update(){
 
 // ===== DRAW =====
 function draw(){
-  // background
   ctx.fillStyle="#111"; ctx.fillRect(0,0,canvas.width,canvas.height);
   if(state==="game"||state==="gameover"){
     ctx.fillStyle=skins[selectedSkin]?"cyan":"white"; ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
-    if(player.shield>0){ctx.strokeStyle="blue"; ctx.beginPath(); ctx.arc(player.x,player.y,20,0,Math.PI*2); ctx.stroke();}
-    ctx.fillStyle="red"; for(let s of saws){ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();}
-    ctx.fillStyle="gold"; for(let c of coins){ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill();}
+    if(player.shield>0){ctx.strokeStyle="blue";ctx.beginPath();ctx.arc(player.x,player.y,20,0,Math.PI*2);ctx.stroke();}
+    ctx.fillStyle="red"; for(let s of saws){ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();}
+    ctx.fillStyle="gold"; for(let c of coins){ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2);ctx.fill();}
     ctx.fillStyle="yellow"; for(let p of particles){ctx.fillRect(p.x,p.y,2,2);}
     ctx.fillStyle="white"; ctx.fillText("Score:"+Math.floor(score),10,20); ctx.fillText("Coins:"+totalCoins,10,40); ctx.fillText("Ability:"+ability,10,60);
   }
-
-  if(state==="menu"){ctx.fillStyle="white"; ctx.font="30px Arial"; ctx.fillText("Wave Survival",300,150); ctx.font="20px Arial"; ctx.fillText("Enter Start | S Shop | A Achievements | K Abilities | C Skins",150,220);}
-  if(state==="shop"){ctx.fillStyle="white"; ctx.fillText("Shop (click buttons)",300,120);}
-  if(state==="abilities"){ctx.fillStyle="white"; ctx.fillText("Abilities (click to select)",300,120);}
-  if(state==="skins"){ctx.fillStyle="white"; ctx.fillText("Skins (click to select)",300,120);}
-  if(state==="achievements"){ctx.fillStyle="white"; ctx.fillText("Achievements",300,120); ctx.fillText("Score100: "+(achievements.score100?"✔":"❌"),300,150); ctx.fillText("Coins100: "+(achievements.coins100?"✔":"❌"),300,180);}
+  if(state==="menu"){ctx.fillStyle="white"; ctx.font="30px Arial"; ctx.fillText("Wave Survival",300,150); ctx.font="20px Arial"; ctx.fillText("ENTER Start | S Shop | A Achievements | K Abilities | C Skins",150,220);}
   if(state==="gameover"){ctx.fillStyle="white"; ctx.fillText("Game Over",350,200);}
 }
+
+// ===== MENU SETUPS =====
+function setupShop(){clearButtons();
+  createMenuButton("Buy Magnet 50",300,150,()=>{if(totalCoins>=50){ownedAbilities.magnet=true; totalCoins-=50; save();}});
+  createMenuButton("Buy Shield 70",300,180,()=>{if(totalCoins>=70){ownedAbilities.shield=true; totalCoins-=70; save();}});
+  createMenuButton("Buy Slow 60",300,210,()=>{if(totalCoins>=60){ownedAbilities.slow=true; totalCoins-=60; save();}});
+}
+function setupAbilities(){clearButtons(); let y=150; for(let ab in ownedAbilities){createMenuButton(ab+(ownedAbilities[ab]?" (owned)":" (LOCKED)"),300,y,()=>{if(ownedAbilities[ab]) ability=ab;}); y+=30;}}
+function setupSkins(){clearButtons(); let y=150; for(let sk in skins){createMenuButton(sk+(skins[sk]?" (selected)":""),300,y,()=>{if(skins[sk]) selectedSkin=sk;}); y+=30;}}
+function setupAchievements(){clearButtons();} // achievements just draw text
 
 // ===== LOOP =====
 function loop(){update(); draw(); requestAnimationFrame(loop);}
 loop();
+
 </script>
 
 </body>
