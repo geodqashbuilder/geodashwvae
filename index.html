@@ -2,10 +2,10 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival Deluxe</title>
+<title>Wave Survival ULTRA</title>
 <style>
-body{ margin:0; background:#111; overflow:hidden;}
-canvas{ display:block; margin:auto; background:#222;}
+body{ margin:0; background:#000; overflow:hidden;}
+canvas{ display:block; margin:auto;}
 </style>
 </head>
 <body>
@@ -16,120 +16,143 @@ canvas{ display:block; margin:auto; background:#222;}
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let state = "menu"; // menu, game, shop, gameover
+// STATE
+let state="menu";
 
-let player, saws, coins, particles;
+// GAME DATA
+let player,saws,coins,particles;
 let goingUp=false;
+let score=0,frame=0,difficulty=1;
+let totalCoins=Number(localStorage.getItem("coins"))||0;
 
-let score=0, difficulty=1, frame=0;
+// AUDIO
+const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+function beep(freq,dur){
+let o=audioCtx.createOscillator();
+let g=audioCtx.createGain();
+o.connect(g); g.connect(audioCtx.destination);
+o.frequency.value=freq;
+o.start();
+g.gain.setValueAtTime(0.1,audioCtx.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+o.stop(audioCtx.currentTime+dur);
+}
 
-let totalCoins = Number(localStorage.getItem("coins")) || 0;
+// UPGRADES
+let upgrades={
+speed:+localStorage.getItem("speed")||1,
+magnet:+localStorage.getItem("magnet")||0,
+shield:+localStorage.getItem("shield")||0,
+slow:+localStorage.getItem("slow")||0,
+skin:+localStorage.getItem("skin")||0
+};
 
-let upgrades = {
-speed: Number(localStorage.getItem("speed")) || 1,
-magnet: Number(localStorage.getItem("magnet")) || 0,
-shield: Number(localStorage.getItem("shield")) || 0,
-slow: Number(localStorage.getItem("slow")) || 0
+let skins=["cyan","lime","yellow","magenta","orange"];
+
+let achievements = JSON.parse(localStorage.getItem("ach"))||{
+score100:false,
+coins100:false
 };
 
 function save(){
-localStorage.setItem("coins", totalCoins);
+localStorage.setItem("coins",totalCoins);
+localStorage.setItem("ach",JSON.stringify(achievements));
 for(let k in upgrades){
-localStorage.setItem(k, upgrades[k]);
+localStorage.setItem(k,upgrades[k]);
 }
 }
 
+// RESET
 function resetGame(){
-player = {
+player={
 x:120,
 y:canvas.height/2,
 size:10,
-speed:4 + upgrades.speed*0.6,
-shield: upgrades.shield
+speed:4+upgrades.speed*0.6,
+shield:upgrades.shield
 };
-
 saws=[]; coins=[]; particles=[];
-score=0; difficulty=1; frame=0;
+score=0; frame=0; difficulty=1;
 }
-
-resetGame();
 
 // INPUT
-document.addEventListener("keydown", e=>{
-
-if(state==="menu" && e.key==="Enter"){
-state="game";
-resetGame();
-}
-
+document.addEventListener("keydown",e=>{
+if(state==="menu"&&e.key==="Enter"){state="game";resetGame();}
 if(state==="game"){
-if(e.key==="w" || e.key==="ArrowUp") goingUp=true;
+if(e.key==="w"||e.key==="ArrowUp")goingUp=true;
 }
-
 if(state==="gameover"){
-if(e.key==="r"){
-state="game";
-resetGame();
+if(e.key==="r"){state="game";resetGame();}
+if(e.key==="s"){state="shop";}
 }
-if(e.key==="s"){
-state="shop";
-}
-}
-
 if(state==="shop"){
-if(e.key==="Escape") state="menu";
-
-if(e.key==="1") buy("speed");
-if(e.key==="2") buy("magnet");
-if(e.key==="3") buy("shield");
-if(e.key==="4") buy("slow");
+if(e.key==="Escape")state="menu";
+if(e.key==="1")buy("speed");
+if(e.key==="2")buy("magnet");
+if(e.key==="3")buy("shield");
+if(e.key==="4")buy("slow");
+if(e.key==="5")buySkin();
 }
-
+});
+document.addEventListener("keyup",e=>{
+if(e.key==="w"||e.key==="ArrowUp")goingUp=false;
 });
 
-document.addEventListener("keyup", e=>{
-if(e.key==="w" || e.key==="ArrowUp") goingUp=false;
-});
+// MOBILE
+canvas.addEventListener("touchstart",()=>goingUp=true);
+canvas.addEventListener("touchend",()=>goingUp=false);
 
-// BUY SYSTEM
-function cost(type){
-return (upgrades[type]+1)*15;
+// SHOP
+function cost(t){return (upgrades[t]+1)*20;}
+function buy(t){
+let c=cost(t);
+if(totalCoins>=c){
+totalCoins-=c; upgrades[t]++; save();
 }
-
-function buy(type){
-let c = cost(type);
-if(totalCoins >= c){
-totalCoins -= c;
-upgrades[type]++;
+}
+function buySkin(){
+if(totalCoins>=50){
+totalCoins-=50;
+upgrades.skin=(upgrades.skin+1)%skins.length;
 save();
 }
 }
 
-// SPAWN
+// SPAWNING
 function spawnSaw(){
 saws.push({
 x:canvas.width+40,
 y:Math.random()*canvas.height,
-r:18 + difficulty*3,
-speed:3 + difficulty*0.4
+r:15+difficulty*2,
+speed:3+difficulty*0.4
+});
+}
+
+function spawnBoss(){
+saws.push({
+x:canvas.width+40,
+y:canvas.height/2,
+r:50,
+speed:2,
+boss:true
 });
 }
 
 function spawnCoin(){
 coins.push({
 x:canvas.width+40,
-y:Math.random()*(canvas.height-40)+20,
+y:Math.random()*canvas.height,
 r:6
 });
 }
 
 // PARTICLES
-function spawnParticles(x,y){
-for(let i=0;i<10;i++){
+function particlesBurst(x,y){
+for(let i=0;i<12;i++){
 particles.push({
 x,y,
-vx:(Math.random()-0.5)*4,
-vy:(Math.random()-0.5)*4,
+vx:(Math.random()-0.5)*5,
+vy:(Math.random()-0.5)*5,
 life:30
 });
 }
@@ -137,108 +160,114 @@ life:30
 
 // UPDATE
 function update(){
+if(state!=="game")return;
 
-if(state!=="game") return;
-
-frame++;
-score+=0.5;
-difficulty = 1 + score/60;
+frame++; score+=0.5;
+difficulty=1+score/60;
 
 // movement
-if(goingUp) player.y -= player.speed;
-else player.y += player.speed;
+if(goingUp) player.y-=player.speed;
+else player.y+=player.speed;
 
-// bounds
-if(player.y < player.size) player.y = player.size;
-if(player.y > canvas.height-player.size) player.y = canvas.height-player.size;
+player.y=Math.max(player.size,Math.min(canvas.height-player.size,player.y));
 
-// spawn
-if(frame % Math.max(25, 90-difficulty*5) === 0) spawnSaw();
-if(frame % 100 === 0) spawnCoin();
+// patterns
+if(frame%100===0)spawnSaw();
+if(frame%300===0)spawnBoss();
+if(frame%80===0)spawnCoin();
 
 // saws
 for(let i=saws.length-1;i>=0;i--){
 let s=saws[i];
-let slowFactor = upgrades.slow>0 ? 1 - upgrades.slow*0.1 : 1;
+let slowFactor=1-(upgrades.slow*0.1);
+s.x-=s.speed*slowFactor;
 
-s.x -= s.speed * slowFactor;
+if(s.boss){
+s.y+=Math.sin(frame*0.05)*3;
+}
 
-let dx=player.x-s.x;
-let dy=player.y-s.y;
+let dx=player.x-s.x, dy=player.y-s.y;
 let d=Math.sqrt(dx*dx+dy*dy);
 
-if(d < s.r + player.size){
+if(d < s.r+player.size){
 if(player.shield>0){
 player.shield--;
+particlesBurst(player.x,player.y);
 saws.splice(i,1);
+beep(200,0.1);
 continue;
 }else{
 state="gameover";
+beep(80,0.3);
 }
 }
 
-if(s.x<-100) saws.splice(i,1);
+if(s.x<-100)saws.splice(i,1);
 }
 
 // coins
 for(let i=coins.length-1;i>=0;i--){
 let c=coins[i];
 
-// magnet
-let dx=player.x-c.x;
-let dy=player.y-c.y;
-let dist=Math.sqrt(dx*dx+dy*dy);
+let dx=player.x-c.x, dy=player.y-c.y;
+let d=Math.sqrt(dx*dx+dy*dy);
 
-if(upgrades.magnet>0 && dist < 120){
-c.x += dx*0.05;
-c.y += dy*0.05;
+if(upgrades.magnet>0 && d<120){
+c.x+=dx*0.05; c.y+=dy*0.05;
 }else{
-c.x -= 4;
+c.x-=4;
 }
 
-if(dist < c.r + player.size){
+if(d < c.r+player.size){
 totalCoins++;
-spawnParticles(c.x,c.y);
+particlesBurst(c.x,c.y);
 coins.splice(i,1);
-save();
+beep(600,0.05);
 }
 
-if(c.x<-50) coins.splice(i,1);
+if(c.x<-50)coins.splice(i,1);
 }
 
 // particles
 for(let i=particles.length-1;i>=0;i--){
 let p=particles[i];
-p.x+=p.vx;
-p.y+=p.vy;
-p.life--;
-
-if(p.life<=0) particles.splice(i,1);
+p.x+=p.vx; p.y+=p.vy; p.life--;
+if(p.life<=0)particles.splice(i,1);
 }
 
+// achievements
+if(score>100)achievements.score100=true;
+if(totalCoins>100)achievements.coins100=true;
+
+save();
+}
+
+// DRAW BG
+function drawBG(){
+let hue=(frame%360);
+ctx.fillStyle="hsl("+hue+",50%,10%)";
+ctx.fillRect(0,0,canvas.width,canvas.height);
 }
 
 // DRAW
 function draw(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height);
+drawBG();
 
 if(state==="menu"){
 ctx.fillStyle="white";
 ctx.font="50px Arial";
-ctx.fillText("Wave Survival", 250,180);
+ctx.fillText("Wave ULTRA",300,180);
 ctx.font="20px Arial";
-ctx.fillText("Press ENTER to Start", 320,230);
-ctx.fillText("Coins: "+totalCoins, 380,270);
+ctx.fillText("ENTER to Start",350,230);
 }
 
-if(state==="game" || state==="gameover"){
+if(state==="game"||state==="gameover"){
 
 // player
-ctx.fillStyle="cyan";
-ctx.fillRect(player.x-player.size, player.y-player.size, player.size*2, player.size*2);
+ctx.fillStyle=skins[upgrades.skin];
+ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
 
-// shield visual
+// shield
 if(player.shield>0){
 ctx.strokeStyle="blue";
 ctx.beginPath();
@@ -270,34 +299,37 @@ ctx.fillRect(p.x,p.y,3,3);
 
 // UI
 ctx.fillStyle="white";
-ctx.fillText("Score: "+Math.floor(score),15,30);
-ctx.fillText("Coins: "+totalCoins,15,55);
+ctx.fillText("Score: "+Math.floor(score),10,20);
+ctx.fillText("Coins: "+totalCoins,10,40);
 
-// game over
+// achievements
+if(achievements.score100){
+ctx.fillText("🏆 Score 100!",700,20);
+}
+
 if(state==="gameover"){
 ctx.font="40px Arial";
-ctx.fillText("Game Over",330,200);
+ctx.fillText("Game Over",320,200);
 ctx.font="20px Arial";
-ctx.fillText("R = Restart | S = Shop",320,240);
+ctx.fillText("R=Retry S=Shop",350,240);
 }
 }
 
 if(state==="shop"){
 ctx.fillStyle="white";
-ctx.font="40px Arial";
-ctx.fillText("SHOP",400,80);
+ctx.font="30px Arial";
+ctx.fillText("SHOP",400,60);
 
-ctx.font="20px Arial";
+ctx.font="18px Arial";
+ctx.fillText("1 Speed ("+cost("speed")+")",300,120);
+ctx.fillText("2 Magnet ("+cost("magnet")+")",300,150);
+ctx.fillText("3 Shield ("+cost("shield")+")",300,180);
+ctx.fillText("4 Slow ("+cost("slow")+")",300,210);
+ctx.fillText("5 Skin (50)",300,240);
 
-ctx.fillText("1. Speed Lv."+upgrades.speed+" ($"+cost("speed")+")",250,150);
-ctx.fillText("2. Magnet Lv."+upgrades.magnet+" ($"+cost("magnet")+")",250,190);
-ctx.fillText("3. Shield Lv."+upgrades.shield+" ($"+cost("shield")+")",250,230);
-ctx.fillText("4. Slow Time Lv."+upgrades.slow+" ($"+cost("slow")+")",250,270);
-
-ctx.fillText("Coins: "+totalCoins,250,320);
-ctx.fillText("ESC = Back",250,350);
+ctx.fillText("Coins: "+totalCoins,300,300);
+ctx.fillText("ESC to menu",300,330);
 }
-
 }
 
 // LOOP
@@ -306,7 +338,6 @@ update();
 draw();
 requestAnimationFrame(loop);
 }
-
 loop();
 </script>
 
