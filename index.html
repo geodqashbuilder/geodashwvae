@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival</title>
+<title>Wave Survival+</title>
 <style>
 body{
   margin:0;
@@ -24,7 +24,7 @@ canvas{
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-ctx.fillText("High Score: " + highScore, 15, 80);
+
 let player;
 let saws;
 let goingUp;
@@ -32,13 +32,15 @@ let score;
 let difficulty;
 let frame;
 let gameOver;
+let shakeTime;
 let highScore = localStorage.getItem("waveHighScore") || 0;
+
 function resetGame(){
 player = {
   x:120,
   y:canvas.height/2,
   size:10,
-  speed:4
+  vel:0
 };
 
 saws = [];
@@ -47,6 +49,7 @@ score = 0;
 difficulty = 1;
 frame = 0;
 gameOver = false;
+shakeTime = 0;
 }
 
 resetGame();
@@ -65,17 +68,30 @@ if(e.key==="w" || e.key==="ArrowUp") goingUp=false;
 
 function spawnSaw(){
 
-let y = Math.random() * canvas.height;
+let minGap = 80;
+let y;
 
-let radius = 18 + difficulty * 3;
+if(saws.length > 0){
+  let lastY = saws[saws.length-1].y;
+  y = lastY + (Math.random() * 200 - 100);
+
+  if(Math.abs(y - lastY) < minGap){
+    y += (y > lastY ? minGap : -minGap);
+  }
+}else{
+  y = Math.random() * canvas.height;
+}
+
+y = Math.max(40, Math.min(canvas.height - 40, y));
+
+let radius = 18 + difficulty * 2;
 
 saws.push({
-x:canvas.width + 40,
-y:y,
-r:radius,
-speed:3 + difficulty * 0.4
+  x:canvas.width + 40,
+  y:y,
+  r:radius,
+  speed:3 + difficulty * 0.3
 });
-
 }
 
 function update(){
@@ -85,36 +101,52 @@ if(gameOver) return;
 frame++;
 score += 0.5;
 
-difficulty = 1 + score / 60;
+// capped difficulty
+difficulty = 1 + Math.min(score / 100, 10);
 
+// physics movement
 if(goingUp){
-player.y -= player.speed;
+  player.vel -= 0.3;
 }else{
-player.y += player.speed;
+  player.vel += 0.2;
 }
 
-if(player.y < player.size) player.y = player.size;
-if(player.y > canvas.height - player.size) player.y = canvas.height - player.size; 
+player.vel *= 0.98;
+player.y += player.vel;
 
+// boundaries
+if(player.y < player.size) player.y = player.size;
+if(player.y > canvas.height - player.size) player.y = canvas.height - player.size;
+
+// spawn logic
 let spawnRate = Math.max(25, 90 - difficulty * 5);
 
 if(frame % Math.floor(spawnRate) === 0){
 spawnSaw();
 }
 
+// saw updates
 for(let i = saws.length-1; i >= 0; i--){
 
 let saw = saws[i];
 saw.x -= saw.speed;
 
+// collision
 let dx = player.x - saw.x;
 let dy = player.y - saw.y;
 let dist = Math.sqrt(dx*dx + dy*dy);
 
 if(dist < saw.r + player.size){
 gameOver = true;
+shakeTime = 20;
+
+if(score > highScore){
+  highScore = Math.floor(score);
+  localStorage.setItem("waveHighScore", highScore);
+}
 }
 
+// remove off-screen
 if(saw.x < -100){
 saws.splice(i,1);
 }
@@ -132,12 +164,9 @@ ctx.rotate(frame*0.05);
 ctx.beginPath();
 
 for(let i=0;i<20;i++){
-
 let angle = i * Math.PI / 10;
 let rad = i%2===0 ? r : r/2;
-
 ctx.lineTo(Math.cos(angle)*rad, Math.sin(angle)*rad);
-
 }
 
 ctx.closePath();
@@ -145,31 +174,44 @@ ctx.fillStyle="red";
 ctx.fill();
 
 ctx.restore();
-
 }
 
 function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-ctx.fillStyle="cyan";
-ctx.fillRect(player.x-player.size, player.y-player.size, player.size*2, player.size*2);
+// screen shake
+if(shakeTime > 0){
+  shakeTime--;
+  ctx.save();
+  ctx.translate(Math.random()*6-3, Math.random()*6-3);
+}
 
+// player with rotation
+ctx.save();
+ctx.translate(player.x, player.y);
+ctx.rotate(player.vel * 0.05);
+
+ctx.fillStyle="cyan";
+ctx.fillRect(-player.size, -player.size, player.size*2, player.size*2);
+
+ctx.restore();
+
+// saws
 for(let saw of saws){
 drawSaw(saw.x, saw.y, saw.r);
 }
 
+// UI
 ctx.fillStyle="white";
 ctx.font="20px Arial";
 ctx.fillText("Score: " + Math.floor(score), 15, 30);
-
 ctx.fillText("Difficulty: " + difficulty.toFixed(1), 15, 55);
+ctx.fillText("High Score: " + highScore, 15, 80);
 
+// game over
 if(gameOver){
-if(score > highScore){
-  highScore = Math.floor(score);
-  localStorage.setItem("waveHighScore", highScore);
-}
+
 ctx.fillStyle="white";
 ctx.font="50px Arial";
 ctx.fillText("Game Over", canvas.width/2 - 140, canvas.height/2);
@@ -179,15 +221,16 @@ ctx.fillText("Press R to Restart", canvas.width/2 - 90, canvas.height/2 + 40);
 
 }
 
+if(shakeTime > 0){
+  ctx.restore();
+}
+
 }
 
 function loop(){
-
 update();
 draw();
-
 requestAnimationFrame(loop);
-
 }
 
 loop();
