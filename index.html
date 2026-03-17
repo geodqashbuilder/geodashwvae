@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival - Abilities & Skins</title>
+<title>Wave Survival - Skins & Abilities</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;font-family:Arial;}
 canvas{display:block;margin:auto;background:#111;}
@@ -28,7 +28,10 @@ let goingUp=false, score=0, frame=0, difficulty=1;
 let totalCoins = +localStorage.getItem("coins")||0;
 let ownedAbilities = JSON.parse(localStorage.getItem("ownedAbilities"))||{speed:true,magnet:false,shield:false,slow:false};
 let ability = "speed";
+
+// Skins: true = unlocked
 let skins = JSON.parse(localStorage.getItem("skins"))||{default:true,red:false,green:false};
+let skinPrices = {red:50, green:100}; // cost in coins
 let selectedSkin = Object.keys(skins).find(k=>skins[k]);
 
 function save(){
@@ -129,9 +132,8 @@ function update(){
 function draw(){
     ctx.fillStyle="#111"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // draw player
     if(state==="game"||state==="gameover"){
-        let color = "white";
+        let color="white";
         if(selectedSkin==="red") color="red";
         else if(selectedSkin==="green") color="green";
         ctx.fillStyle=color; ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
@@ -150,16 +152,27 @@ function draw(){
     if(state==="menu"){ ctx.fillStyle="white"; ctx.font="30px Arial"; ctx.fillText("Wave Survival",300,150);
         ctx.font="20px Arial"; ctx.fillText("ENTER Start | S Shop | K Abilities | C Skins",150,220); }
     if(state==="gameover"){ ctx.fillStyle="white"; ctx.fillText("Game Over",350,200); }
-    if(state==="shop"){ ctx.fillStyle="white"; ctx.fillText("Shop (click buttons)",300,120); }
+    if(state==="shop"){ ctx.fillStyle="white"; ctx.fillText("Shop (click to buy abilities/skins)",300,120); }
     if(state==="abilities"){ ctx.fillStyle="white"; ctx.fillText("Abilities (click to select)",300,120); }
     if(state==="skins"){ ctx.fillStyle="white"; ctx.fillText("Skins (click to select)",300,120); }
 }
 
 // ===== MENUS =====
 function setupShop(){ clearButtons();
+    // Abilities
     createMenuButton("Buy Magnet 50",300,150,()=>{if(totalCoins>=50){ownedAbilities.magnet=true; totalCoins-=50; save();}});
     createMenuButton("Buy Shield 70",300,180,()=>{if(totalCoins>=70){ownedAbilities.shield=true; totalCoins-=70; save();}});
     createMenuButton("Buy Slow 60",300,210,()=>{if(totalCoins>=60){ownedAbilities.slow=true; totalCoins-=60; save();}});
+    // Skins
+    let y=250;
+    for(let sk in skins){
+        if(!skins[sk]){
+            createMenuButton(`Buy ${sk} ${skinPrices[sk]}`,300,y,()=>{
+                if(totalCoins>=skinPrices[sk]){skins[sk]=true; totalCoins-=skinPrices[sk]; save(); setupShop();}
+            });
+            y+=30;
+        }
+    }
 }
 
 function setupAbilities(){ clearButtons(); let y=150; for(let ab in ownedAbilities){
