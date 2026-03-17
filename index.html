@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival Buttons Fixed</title>
+<title>Wave Survival - Abilities & Skins</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;font-family:Arial;}
 canvas{display:block;margin:auto;background:#111;}
@@ -14,15 +14,15 @@ button{position:absolute;font:16px Arial;cursor:pointer;}
 <canvas id="game" width="900" height="450"></canvas>
 
 <script>
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
 // ===== STATE =====
-let state="menu"; // menu, game, gameover, shop, abilities, skins, achievements
+let state = "menu"; // menu, game, gameover, shop, abilities, skins
 
 // ===== GAME DATA =====
-let player,saws=[],coins=[],particles=[];
-let goingUp=false,score=0,frame=0,difficulty=1;
+let player, saws=[], coins=[], particles=[];
+let goingUp=false, score=0, frame=0, difficulty=1;
 
 // ===== SAVE =====
 let totalCoins = +localStorage.getItem("coins")||0;
@@ -30,109 +30,148 @@ let ownedAbilities = JSON.parse(localStorage.getItem("ownedAbilities"))||{speed:
 let ability = "speed";
 let skins = JSON.parse(localStorage.getItem("skins"))||{default:true,red:false,green:false};
 let selectedSkin = Object.keys(skins).find(k=>skins[k]);
-let achievements = JSON.parse(localStorage.getItem("ach"))||{score100:false,coins100:false};
-function save(){localStorage.setItem("coins",totalCoins); localStorage.setItem("ownedAbilities",JSON.stringify(ownedAbilities)); localStorage.setItem("skins",JSON.stringify(skins)); localStorage.setItem("ach",JSON.stringify(achievements));}
+
+function save(){
+    localStorage.setItem("coins", totalCoins);
+    localStorage.setItem("ownedAbilities", JSON.stringify(ownedAbilities));
+    localStorage.setItem("skins", JSON.stringify(skins));
+}
 
 // ===== BUTTON MANAGEMENT =====
-let menuButtons=[];
-function clearButtons(){menuButtons.forEach(b=>b.remove()); menuButtons=[];}
-function createMenuButton(text,x,y,click){let b=document.createElement("button"); b.style.left=x+"px"; b.style.top=y+"px"; b.textContent=text; b.onclick=click; document.body.appendChild(b); menuButtons.push(b); return b;}
+let menuButtons = [];
+function clearButtons(){ menuButtons.forEach(b=>b.remove()); menuButtons=[]; }
+function createMenuButton(text,x,y,click){
+    let b=document.createElement("button");
+    b.style.left=x+"px"; b.style.top=y+"px"; 
+    b.textContent=text; 
+    b.onclick=click; 
+    document.body.appendChild(b); 
+    menuButtons.push(b); 
+}
 
 // ===== AUDIO =====
 const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-function play(freq,dur){let o=audioCtx.createOscillator(); let g=audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value=freq; g.gain.setValueAtTime(0.1,audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur); o.start(); o.stop(audioCtx.currentTime+dur);}
+function play(freq,dur){
+    let o = audioCtx.createOscillator();
+    let g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.1,audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+    o.start(); o.stop(audioCtx.currentTime+dur);
+}
 
-// ===== RESET =====
+// ===== RESET GAME =====
 function resetGame(){
-  player={x:120,y:canvas.height/2,size:10,speed:4,shield:0};
-  if(ability==="speed") player.speed=6;
-  if(ability==="shield") player.shield=1;
-  saws=[]; coins=[]; particles=[]; score=0; frame=0; difficulty=1;
+    player = {x:120,y:canvas.height/2,size:10,shield:0};
+    if(ability==="speed") player.speed=6;
+    if(ability==="shield") player.shield=1;
+    saws=[]; coins=[]; particles=[]; score=0; frame=0; difficulty=1;
 }
 
 // ===== INPUT =====
-document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){state="menu"; clearButtons();}
-  if(state==="menu"){
-    if(e.key==="Enter"){state="game"; resetGame();}
-    if(e.key==="s"){state="shop"; setupShop();}
-    if(e.key==="a"){state="achievements"; setupAchievements();}
-    if(e.key==="k"){state="abilities"; setupAbilities();}
-    if(e.key==="c"){state="skins"; setupSkins();}
-  }
-  if(state==="game"){if(e.key==="w"||e.key==="ArrowUp") goingUp=true;}
-  if(state==="gameover"){if(e.key==="r"){state="game"; resetGame();}}
+document.addEventListener("keydown", e=>{
+    if(e.key==="Escape"){state="menu"; clearButtons();}
+    if(state==="menu"){
+        if(e.key==="Enter"){state="game"; resetGame();}
+        if(e.key==="s"){state="shop"; setupShop();}
+        if(e.key==="k"){state="abilities"; setupAbilities();}
+        if(e.key==="c"){state="skins"; setupSkins();}
+    }
+    if(state==="game"){if(e.key==="w"||e.key==="ArrowUp") goingUp=true;}
+    if(state==="gameover"){if(e.key==="r"){state="game"; resetGame();}}
 });
-document.addEventListener("keyup",e=>{if(e.key==="w"||e.key==="ArrowUp") goingUp=false;});
+document.addEventListener("keyup", e=>{if(e.key==="w"||e.key==="ArrowUp") goingUp=false;});
 
 // ===== SPAWN =====
-function spawnSaw(){saws.push({x:canvas.width+40,y:Math.random()*canvas.height,r:18+difficulty*2,speed:3+difficulty*0.4});}
-function spawnCoin(){coins.push({x:canvas.width+40,y:Math.random()*(canvas.height-40)+20,r:6});}
+function spawnSaw(){ saws.push({x:canvas.width+40,y:Math.random()*canvas.height,r:18+difficulty*2,speed:3+difficulty*0.4}); }
+function spawnCoin(){ coins.push({x:canvas.width+40,y:Math.random()*(canvas.height-40)+20,r:6}); }
 
 // ===== PARTICLES =====
-function burst(x,y){for(let i=0;i<10;i++){particles.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:20});}}
+function burst(x,y){ for(let i=0;i<10;i++){particles.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:20});} }
 
 // ===== UPDATE =====
 function update(){
-  if(state!=="game") return;
-  frame++; score+=0.5; difficulty=1+score/80;
-  player.y += goingUp?-player.speed:player.speed;
-  player.y=Math.max(player.size,Math.min(canvas.height-player.size,player.y));
+    if(state!=="game") return;
+    frame++; score+=0.5; difficulty=1+score/80;
+    player.y += goingUp?-player.speed:player.speed;
+    player.y=Math.max(player.size, Math.min(canvas.height-player.size,player.y));
 
-  let rate=Math.max(25,90-difficulty*5); if(ability==="slow") rate*=1.3;
-  if(frame%Math.floor(rate)===0) spawnSaw();
-  if(frame%110===0) spawnCoin();
+    let rate = Math.max(25, 90-difficulty*5);
+    if(ability==="slow") rate *= 1.3;
+    if(frame%Math.floor(rate)===0) spawnSaw();
+    if(frame%110===0) spawnCoin();
 
-  // saws
-  for(let i=saws.length-1;i>=0;i--){
-    let s=saws[i]; s.x-=s.speed*(ability==="slow"?0.6:1);
-    let dx=player.x-s.x, dy=player.y-s.y;
-    if(Math.hypot(dx,dy)<s.r+player.size){
-      if(player.shield>0){player.shield--; burst(player.x,player.y); saws.splice(i,1); continue;}
-      play(100,0.2); state="gameover";
+    // saws
+    for(let i=saws.length-1;i>=0;i--){
+        let s=saws[i]; s.x -= s.speed*(ability==="slow"?0.6:1);
+        let dx=player.x-s.x, dy=player.y-s.y;
+        if(Math.hypot(dx,dy)<s.r+player.size){
+            if(player.shield>0){player.shield--; burst(player.x,player.y); saws.splice(i,1); continue;}
+            play(100,0.2); state="gameover";
+        }
+        if(s.x<-100) saws.splice(i,1);
     }
-    if(s.x<-100) saws.splice(i,1);
-  }
 
-  // coins
-  for(let i=coins.length-1;i>=0;i--){
-    let c=coins[i]; let dx=player.x-c.x, dy=player.y-c.y, dist=Math.hypot(dx,dy);
-    if(ability==="magnet"&&dist<150){c.x+=dx*0.08;c.y+=dy*0.08;} else c.x-=4;
-    if(dist<c.r+player.size){totalCoins++; burst(c.x,c.y); coins.splice(i,1); play(700,0.05);}
-    if(c.x<-50) coins.splice(i,1);
-  }
+    // coins
+    for(let i=coins.length-1;i>=0;i--){
+        let c=coins[i]; let dx=player.x-c.x, dy=player.y-c.y, dist=Math.hypot(dx,dy);
+        if(ability==="magnet"&&dist<150){c.x+=dx*0.08;c.y+=dy*0.08;} else c.x-=4;
+        if(dist<c.r+player.size){totalCoins++; burst(c.x,c.y); coins.splice(i,1); play(700,0.05);}
+        if(c.x<-50) coins.splice(i,1);
+    }
 
-  for(let i=particles.length-1;i>=0;i--){let p=particles[i]; p.x+=p.vx;p.y+=p.vy;p.life--; if(p.life<=0) particles.splice(i,1);}
-  if(score>100) achievements.score100=true; if(totalCoins>100) achievements.coins100=true; save();
+    for(let i=particles.length-1;i>=0;i--){ let p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.life--; if(p.life<=0) particles.splice(i,1);}
+    save();
 }
 
 // ===== DRAW =====
 function draw(){
-  ctx.fillStyle="#111"; ctx.fillRect(0,0,canvas.width,canvas.height);
-  if(state==="game"||state==="gameover"){
-    ctx.fillStyle=skins[selectedSkin]?"cyan":"white"; ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
-    if(player.shield>0){ctx.strokeStyle="blue";ctx.beginPath();ctx.arc(player.x,player.y,20,0,Math.PI*2);ctx.stroke();}
-    ctx.fillStyle="red"; for(let s of saws){ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();}
-    ctx.fillStyle="gold"; for(let c of coins){ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2);ctx.fill();}
-    ctx.fillStyle="yellow"; for(let p of particles){ctx.fillRect(p.x,p.y,2,2);}
-    ctx.fillStyle="white"; ctx.fillText("Score:"+Math.floor(score),10,20); ctx.fillText("Coins:"+totalCoins,10,40); ctx.fillText("Ability:"+ability,10,60);
-  }
-  if(state==="menu"){ctx.fillStyle="white"; ctx.font="30px Arial"; ctx.fillText("Wave Survival",300,150); ctx.font="20px Arial"; ctx.fillText("ENTER Start | S Shop | A Achievements | K Abilities | C Skins",150,220);}
-  if(state==="gameover"){ctx.fillStyle="white"; ctx.fillText("Game Over",350,200);}
+    ctx.fillStyle="#111"; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // draw player
+    if(state==="game"||state==="gameover"){
+        let color = "white";
+        if(selectedSkin==="red") color="red";
+        else if(selectedSkin==="green") color="green";
+        ctx.fillStyle=color; ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
+
+        if(player.shield>0){ ctx.strokeStyle="blue"; ctx.beginPath(); ctx.arc(player.x,player.y,20,0,Math.PI*2); ctx.stroke(); }
+
+        ctx.fillStyle="red"; for(let s of saws){ ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
+        ctx.fillStyle="gold"; for(let c of coins){ ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
+        ctx.fillStyle="yellow"; for(let p of particles){ ctx.fillRect(p.x,p.y,2,2); }
+
+        ctx.fillStyle="white"; ctx.fillText("Score:"+Math.floor(score),10,20);
+        ctx.fillText("Coins:"+totalCoins,10,40);
+        ctx.fillText("Ability:"+ability,10,60);
+    }
+
+    if(state==="menu"){ ctx.fillStyle="white"; ctx.font="30px Arial"; ctx.fillText("Wave Survival",300,150);
+        ctx.font="20px Arial"; ctx.fillText("ENTER Start | S Shop | K Abilities | C Skins",150,220); }
+    if(state==="gameover"){ ctx.fillStyle="white"; ctx.fillText("Game Over",350,200); }
+    if(state==="shop"){ ctx.fillStyle="white"; ctx.fillText("Shop (click buttons)",300,120); }
+    if(state==="abilities"){ ctx.fillStyle="white"; ctx.fillText("Abilities (click to select)",300,120); }
+    if(state==="skins"){ ctx.fillStyle="white"; ctx.fillText("Skins (click to select)",300,120); }
 }
 
-// ===== MENU SETUPS =====
-function setupShop(){clearButtons();
-  createMenuButton("Buy Magnet 50",300,150,()=>{if(totalCoins>=50){ownedAbilities.magnet=true; totalCoins-=50; save();}});
-  createMenuButton("Buy Shield 70",300,180,()=>{if(totalCoins>=70){ownedAbilities.shield=true; totalCoins-=70; save();}});
-  createMenuButton("Buy Slow 60",300,210,()=>{if(totalCoins>=60){ownedAbilities.slow=true; totalCoins-=60; save();}});
+// ===== MENUS =====
+function setupShop(){ clearButtons();
+    createMenuButton("Buy Magnet 50",300,150,()=>{if(totalCoins>=50){ownedAbilities.magnet=true; totalCoins-=50; save();}});
+    createMenuButton("Buy Shield 70",300,180,()=>{if(totalCoins>=70){ownedAbilities.shield=true; totalCoins-=70; save();}});
+    createMenuButton("Buy Slow 60",300,210,()=>{if(totalCoins>=60){ownedAbilities.slow=true; totalCoins-=60; save();}});
 }
-function setupAbilities(){clearButtons(); let y=150; for(let ab in ownedAbilities){createMenuButton(ab+(ownedAbilities[ab]?" (owned)":" (LOCKED)"),300,y,()=>{if(ownedAbilities[ab]) ability=ab;}); y+=30;}}
-function setupSkins(){clearButtons(); let y=150; for(let sk in skins){createMenuButton(sk+(skins[sk]?" (selected)":""),300,y,()=>{if(skins[sk]) selectedSkin=sk;}); y+=30;}}
-function setupAchievements(){clearButtons();} // achievements just draw text
+
+function setupAbilities(){ clearButtons(); let y=150; for(let ab in ownedAbilities){
+    createMenuButton(ab+(ownedAbilities[ab]?" (owned)":" (LOCKED)"),300,y,()=>{if(ownedAbilities[ab]) ability=ab;}); y+=30;
+}}
+
+function setupSkins(){ clearButtons(); let y=150; for(let sk in skins){
+    createMenuButton(sk+(skins[sk]?" (selected)":" (LOCKED)"),300,y,()=>{if(skins[sk]) selectedSkin=sk;}); y+=30;
+}}
 
 // ===== LOOP =====
-function loop(){update(); draw(); requestAnimationFrame(loop);}
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
 loop();
 
 </script>
