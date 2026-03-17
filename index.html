@@ -24,7 +24,7 @@ canvas{
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
+ctx.fillText("High Score: " + highScore, 15, 80);
 let player;
 let saws;
 let goingUp;
@@ -32,7 +32,7 @@ let score;
 let difficulty;
 let frame;
 let gameOver;
-
+let highScore = localStorage.getItem("waveHighScore") || 0;
 function resetGame(){
 player = {
   x:120,
@@ -93,8 +93,8 @@ player.y -= player.speed;
 player.y += player.speed;
 }
 
-if(player.y < 0) player.y = 0;
-if(player.y > canvas.height) player.y = canvas.height;
+if(player.y < player.size) player.y = player.size;
+if(player.y > canvas.height - player.size) player.y = canvas.height - player.size; 
 
 let spawnRate = Math.max(25, 90 - difficulty * 5);
 
@@ -166,7 +166,10 @@ ctx.fillText("Score: " + Math.floor(score), 15, 30);
 ctx.fillText("Difficulty: " + difficulty.toFixed(1), 15, 55);
 
 if(gameOver){
-
+if(score > highScore){
+  highScore = Math.floor(score);
+  localStorage.setItem("waveHighScore", highScore);
+}
 ctx.fillStyle="white";
 ctx.font="50px Arial";
 ctx.fillText("Game Over", canvas.width/2 - 140, canvas.height/2);
