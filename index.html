@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival - Skins & Abilities</title>
+<title>Wave Survival - Fixed Abilities & Skins</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;font-family:Arial;}
 canvas{display:block;margin:auto;background:#111;}
@@ -66,9 +66,15 @@ function play(freq,dur){
 
 // ===== RESET GAME =====
 function resetGame(){
-    player = {x:120,y:canvas.height/2,size:10,shield:0};
-    if(ability==="speed") player.speed=6;
-    if(ability==="shield") player.shield=1;
+    // Default player
+    player = {x:120, y:canvas.height/2, size:10, shield:0, speed:4};
+
+    // Ability effects
+    if(ability==="speed") player.speed = 6;
+    if(ability==="slow") player.speed = 3; // slower movement
+    if(ability==="shield") player.shield = 1;
+    // Magnet doesn't affect speed
+
     saws=[]; coins=[]; particles=[]; score=0; frame=0; difficulty=1;
 }
 
@@ -176,7 +182,7 @@ function setupShop(){ clearButtons();
 }
 
 function setupAbilities(){ clearButtons(); let y=150; for(let ab in ownedAbilities){
-    createMenuButton(ab+(ownedAbilities[ab]?" (owned)":" (LOCKED)"),300,y,()=>{if(ownedAbilities[ab]) ability=ab;}); y+=30;
+    createMenuButton(ab+(ownedAbilities[ab]?" (owned)":" (LOCKED)"),300,y,()=>{if(ownedAbilities[ab]) {ability=ab; resetGame();}}); y+=30;
 }}
 
 function setupSkins(){ clearButtons(); let y=150; for(let sk in skins){
