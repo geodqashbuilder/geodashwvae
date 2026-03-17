@@ -2,10 +2,10 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival GOD MODE</title>
+<title>Wave Survival Ultimate FIXED</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;}
-canvas{display:block;margin:auto;}
+canvas{display:block;margin:auto;background:#111;}
 </style>
 </head>
 <body>
@@ -16,46 +16,52 @@ canvas{display:block;margin:auto;}
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+// ===== STATE =====
 let state="menu";
 
+// ===== DATA =====
 let player,saws,coins,particles,ghost=[],replay=[];
-let aiEnemy=null;
+let aiEnemy;
 
 let goingUp=false;
-let score=0,frame=0,difficulty=1;
+let score=0,frame=0;
 
 let totalCoins=+localStorage.getItem("coins")||0;
 let leaderboard=JSON.parse(localStorage.getItem("leaderboard"))||[];
 
-// achievements
+let upgrades={
+speed:+localStorage.getItem("speed")||1
+};
+
 let achievements=JSON.parse(localStorage.getItem("ach"))||{
 score100:false,
-coins100:false,
-survive500:false
+coins100:false
 };
 
 function save(){
 localStorage.setItem("coins",totalCoins);
 localStorage.setItem("leaderboard",JSON.stringify(leaderboard));
 localStorage.setItem("ach",JSON.stringify(achievements));
+localStorage.setItem("speed",upgrades.speed);
 }
 
-// RESET
+// ===== RESET =====
 function resetGame(){
-player={x:120,y:225,size:10,speed:4};
+player={x:120,y:225,size:10,speed:4+upgrades.speed*0.5};
 saws=[]; coins=[]; particles=[];
-ghost=[...replay];
+ghost = replay.slice(0,300); // limit replay
 replay=[];
-aiEnemy={x:800,y:200};
-score=0; frame=0; difficulty=1;
+aiEnemy={x:800,y:225};
+score=0; frame=0;
 }
 
-// INPUT
+// ===== INPUT =====
 document.addEventListener("keydown",e=>{
 if(state==="menu"){
 if(e.key==="Enter"){state="game";resetGame();}
 if(e.key==="a")state="achievements";
 if(e.key==="l")state="leaderboard";
+if(e.key==="s")state="shop";
 }
 
 if(state==="game"){
@@ -65,43 +71,64 @@ if(e.key==="w"||e.key==="ArrowUp")goingUp=true;
 if(state==="gameover"){
 if(e.key==="r"){state="game";resetGame();}
 if(e.key==="s")state="shop";
-if(e.key==="l")state="leaderboard";
 }
 
+if(state==="shop"){
+if(e.key==="1")buySpeed();
 if(e.key==="Escape")state="menu";
+}
+
+if(e.key==="Escape") state="menu";
 });
 
 document.addEventListener("keyup",e=>{
 if(e.key==="w"||e.key==="ArrowUp")goingUp=false;
 });
 
+// MOBILE
+canvas.addEventListener("touchstart",()=>goingUp=true);
+canvas.addEventListener("touchend",()=>goingUp=false);
+
 // GAMEPAD
 function gamepadInput(){
 let gp=navigator.getGamepads()[0];
-if(gp){
-goingUp=gp.buttons[0].pressed;
+if(gp) goingUp=gp.buttons[0].pressed;
+}
+
+// ===== SHOP =====
+function speedCost(){
+return upgrades.speed*20;
+}
+
+function buySpeed(){
+let c=speedCost();
+if(totalCoins>=c){
+totalCoins-=c;
+upgrades.speed++;
+save();
 }
 }
 
-// SPAWN
+// ===== SPAWN =====
 function spawnSaw(){
 saws.push({x:900,y:Math.random()*450,r:20,speed:4});
 }
+
 function spawnCoin(){
 coins.push({x:900,y:Math.random()*450,r:6});
 }
 
-// UPDATE
+// ===== UPDATE =====
 function update(){
-if(state!=="game")return;
+if(state!=="game") return;
 
 gamepadInput();
 
-frame++; score+=0.5;
-difficulty=1+score/60;
+frame++;
+score+=0.5;
 
-// record replay
-replay.push(player.y);
+// replay (limited)
+if(replay.length<600) replay.push(player.y);
 
 // movement
 if(goingUp) player.y-=player.speed;
@@ -110,57 +137,57 @@ else player.y+=player.speed;
 player.y=Math.max(10,Math.min(440,player.y));
 
 // spawn
-if(frame%80===0)spawnSaw();
-if(frame%120===0)spawnCoin();
+if(frame%80===0) spawnSaw();
+if(frame%120===0) spawnCoin();
 
-// AI enemy (chaser)
-aiEnemy.y += (player.y - aiEnemy.y) * 0.03;
+// AI (stable)
+aiEnemy.y += (player.y - aiEnemy.y)*0.04;
 aiEnemy.x -= 1;
 
 // saws
 for(let i=saws.length-1;i>=0;i--){
 let s=saws[i];
-s.x-=s.speed;
+s.x -= s.speed;
 
-let dx=player.x-s.x,dy=player.y-s.y;
-if(Math.sqrt(dx*dx+dy*dy)<s.r+player.size){
+let dx=player.x-s.x, dy=player.y-s.y;
+if(Math.hypot(dx,dy) < s.r + player.size){
 endGame();
 }
 
-if(s.x<-50)saws.splice(i,1);
+if(s.x<-50) saws.splice(i,1);
 }
 
 // coins
 for(let i=coins.length-1;i>=0;i--){
 let c=coins[i];
-c.x-=4;
+c.x -= 4;
 
-let dx=player.x-c.x,dy=player.y-c.y;
-if(Math.sqrt(dx*dx+dy*dy)<c.r+player.size){
+let dx=player.x-c.x, dy=player.y-c.y;
+if(Math.hypot(dx,dy) < c.r + player.size){
 totalCoins++;
 particles.push({x:c.x,y:c.y,life:20});
 coins.splice(i,1);
 }
 
-if(c.x<-50)coins.splice(i,1);
+if(c.x<-50) coins.splice(i,1);
 }
 
 // AI collision
-let dx=player.x-aiEnemy.x,dy=player.y-aiEnemy.y;
-if(Math.sqrt(dx*dx+dy*dy)<20){
+if(Math.hypot(player.x-aiEnemy.x, player.y-aiEnemy.y) < 18){
 endGame();
 }
 
 // particles
-for(let p of particles){
-p.y-=1; p.life--;
+for(let i=particles.length-1;i>=0;i--){
+let p=particles[i];
+p.y -= 1;
+p.life--;
+if(p.life<=0) particles.splice(i,1);
 }
-particles=particles.filter(p=>p.life>0);
 
 // achievements
-if(score>100)achievements.score100=true;
-if(score>500)achievements.survive500=true;
-if(totalCoins>100)achievements.coins100=true;
+if(score>100) achievements.score100=true;
+if(totalCoins>100) achievements.coins100=true;
 
 save();
 }
@@ -168,47 +195,44 @@ save();
 function endGame(){
 state="gameover";
 
-// save leaderboard
 leaderboard.push(Math.floor(score));
 leaderboard.sort((a,b)=>b-a);
 leaderboard=leaderboard.slice(0,5);
+
 save();
 }
 
-// DRAW
+// ===== DRAW =====
 function draw(){
-
-ctx.fillStyle="#000";
-ctx.fillRect(0,0,900,450);
+ctx.clearRect(0,0,900,450);
 
 // MENU
 if(state==="menu"){
 ctx.fillStyle="white";
 ctx.font="40px Arial";
-ctx.fillText("Wave GOD MODE",280,150);
+ctx.fillText("Wave Survival",300,150);
 ctx.font="20px Arial";
-ctx.fillText("ENTER Start",360,200);
-ctx.fillText("A Achievements",330,230);
-ctx.fillText("L Leaderboard",330,260);
+ctx.fillText("ENTER Start",350,200);
+ctx.fillText("S Shop | A Achievements | L Leaderboard",220,240);
 }
 
 // GAME
 if(state==="game"||state==="gameover"){
 
-// ghost replay
+// ghost
 ctx.fillStyle="rgba(0,255,255,0.3)";
 for(let i=0;i<ghost.length;i+=5){
-ctx.fillRect(120,ghost[i],5,5);
+ctx.fillRect(120,ghost[i],4,4);
 }
 
 // player
 ctx.fillStyle="cyan";
 ctx.fillRect(player.x,player.y,20,20);
 
-// AI enemy
+// AI
 ctx.fillStyle="purple";
 ctx.beginPath();
-ctx.arc(aiEnemy.x,aiEnemy.y,12,0,Math.PI*2);
+ctx.arc(aiEnemy.x,aiEnemy.y,10,0,Math.PI*2);
 ctx.fill();
 
 // saws
@@ -241,18 +265,21 @@ ctx.fillText("Coins:"+totalCoins,10,40);
 if(state==="gameover"){
 ctx.font="30px Arial";
 ctx.fillText("Game Over",350,200);
-ctx.fillText("R Retry",370,230);
+ctx.font="18px Arial";
+ctx.fillText("R Retry | S Shop",350,230);
 }
 }
 
-// LEADERBOARD
-if(state==="leaderboard"){
+// SHOP
+if(state==="shop"){
 ctx.fillStyle="white";
 ctx.font="30px Arial";
-ctx.fillText("Top Scores",350,100);
-for(let i=0;i<leaderboard.length;i++){
-ctx.fillText((i+1)+": "+leaderboard[i],380,150+i*30);
-}
+ctx.fillText("Shop",400,100);
+
+ctx.font="20px Arial";
+ctx.fillText("1. Speed Lv."+upgrades.speed+" ("+speedCost()+")",300,180);
+ctx.fillText("Coins: "+totalCoins,300,230);
+ctx.fillText("ESC to Menu",300,260);
 }
 
 // ACHIEVEMENTS
@@ -261,10 +288,22 @@ ctx.fillStyle="white";
 ctx.font="30px Arial";
 ctx.fillText("Achievements",320,100);
 
-ctx.font="18px Arial";
-ctx.fillText("Score 100: "+(achievements.score100?"✔":"❌"),300,150);
-ctx.fillText("Score 500: "+(achievements.survive500?"✔":"❌"),300,180);
+ctx.font="20px Arial";
+ctx.fillText("Score 100: "+(achievements.score100?"✔":"❌"),300,180);
 ctx.fillText("100 Coins: "+(achievements.coins100?"✔":"❌"),300,210);
+}
+
+// LEADERBOARD
+if(state==="leaderboard"){
+ctx.fillStyle="white";
+ctx.font="30px Arial";
+ctx.fillText("Leaderboard",330,100);
+
+ctx.font="20px Arial";
+for(let i=0;i<leaderboard.length;i++){
+ctx.fillText((i+1)+": "+leaderboard[i],350,160+i*30);
+}
+}
 }
 
 // LOOP
