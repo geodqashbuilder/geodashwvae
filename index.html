@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival+</title>
+<title>Wave Survival Shop Edition</title>
 <style>
 body{
   margin:0;
@@ -25,31 +25,28 @@ canvas{
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let player;
-let saws;
+let player, saws, coins;
 let goingUp;
-let score;
-let difficulty;
-let frame;
+let score, difficulty, frame;
 let gameOver;
-let shakeTime;
-let highScore = localStorage.getItem("waveHighScore") || 0;
+let totalCoins = localStorage.getItem("coins") || 0;
+let speedLevel = localStorage.getItem("speedLevel") || 1;
 
 function resetGame(){
 player = {
   x:120,
   y:canvas.height/2,
   size:10,
-  vel:0
+  speed:4 + speedLevel * 0.5
 };
 
 saws = [];
+coins = [];
 goingUp = false;
 score = 0;
 difficulty = 1;
 frame = 0;
 gameOver = false;
-shakeTime = 0;
 }
 
 resetGame();
@@ -60,6 +57,10 @@ if(e.key==="w" || e.key==="ArrowUp") goingUp=true;
 if(e.key==="r" && gameOver){
 resetGame();
 }
+
+if(e.key==="b" && gameOver){
+buyUpgrade();
+}
 });
 
 document.addEventListener("keyup", e=>{
@@ -67,30 +68,22 @@ if(e.key==="w" || e.key==="ArrowUp") goingUp=false;
 });
 
 function spawnSaw(){
-
-let minGap = 80;
-let y;
-
-if(saws.length > 0){
-  let lastY = saws[saws.length-1].y;
-  y = lastY + (Math.random() * 200 - 100);
-
-  if(Math.abs(y - lastY) < minGap){
-    y += (y > lastY ? minGap : -minGap);
-  }
-}else{
-  y = Math.random() * canvas.height;
-}
-
-y = Math.max(40, Math.min(canvas.height - 40, y));
-
-let radius = 18 + difficulty * 2;
+let y = Math.random() * canvas.height;
+let radius = 18 + difficulty * 3;
 
 saws.push({
-  x:canvas.width + 40,
-  y:y,
-  r:radius,
-  speed:3 + difficulty * 0.3
+x:canvas.width + 40,
+y:y,
+r:radius,
+speed:3 + difficulty * 0.4
+});
+}
+
+function spawnCoin(){
+coins.push({
+x:canvas.width + 40,
+y:Math.random() * (canvas.height - 40) + 20,
+r:6
 });
 }
 
@@ -100,79 +93,95 @@ if(gameOver) return;
 
 frame++;
 score += 0.5;
+difficulty = 1 + score / 60;
 
-// capped difficulty
-difficulty = 1 + Math.min(score / 100, 10);
-
-// physics movement
+// classic movement
 if(goingUp){
-  player.vel -= 0.3;
+  player.y -= player.speed;
 }else{
-  player.vel += 0.2;
+  player.y += player.speed;
 }
 
-player.vel *= 0.98;
-player.y += player.vel;
-
-// boundaries
+// bounds
 if(player.y < player.size) player.y = player.size;
 if(player.y > canvas.height - player.size) player.y = canvas.height - player.size;
 
-// spawn logic
+// spawning
 let spawnRate = Math.max(25, 90 - difficulty * 5);
 
 if(frame % Math.floor(spawnRate) === 0){
 spawnSaw();
 }
 
-// saw updates
-for(let i = saws.length-1; i >= 0; i--){
+if(frame % 120 === 0){
+spawnCoin();
+}
 
+// saws
+for(let i = saws.length-1; i >= 0; i--){
 let saw = saws[i];
 saw.x -= saw.speed;
 
-// collision
 let dx = player.x - saw.x;
 let dy = player.y - saw.y;
 let dist = Math.sqrt(dx*dx + dy*dy);
 
 if(dist < saw.r + player.size){
 gameOver = true;
-shakeTime = 20;
-
-if(score > highScore){
-  highScore = Math.floor(score);
-  localStorage.setItem("waveHighScore", highScore);
-}
 }
 
-// remove off-screen
 if(saw.x < -100){
 saws.splice(i,1);
 }
+}
+
+// coins
+for(let i = coins.length-1; i >= 0; i--){
+let c = coins[i];
+c.x -= 4;
+
+let dx = player.x - c.x;
+let dy = player.y - c.y;
+let dist = Math.sqrt(dx*dx + dy*dy);
+
+if(dist < c.r + player.size){
+totalCoins++;
+localStorage.setItem("coins", totalCoins);
+coins.splice(i,1);
+}
+
+if(c.x < -50){
+coins.splice(i,1);
+}
+}
 
 }
 
+function buyUpgrade(){
+let cost = speedLevel * 10;
+
+if(totalCoins >= cost){
+  totalCoins -= cost;
+  speedLevel++;
+  localStorage.setItem("coins", totalCoins);
+  localStorage.setItem("speedLevel", speedLevel);
+}
 }
 
 function drawSaw(x,y,r){
-
 ctx.save();
 ctx.translate(x,y);
 ctx.rotate(frame*0.05);
 
 ctx.beginPath();
-
 for(let i=0;i<20;i++){
 let angle = i * Math.PI / 10;
 let rad = i%2===0 ? r : r/2;
 ctx.lineTo(Math.cos(angle)*rad, Math.sin(angle)*rad);
 }
-
 ctx.closePath();
 ctx.fillStyle="red";
 ctx.fill();
-
 ctx.restore();
 }
 
@@ -180,36 +189,31 @@ function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// screen shake
-if(shakeTime > 0){
-  shakeTime--;
-  ctx.save();
-  ctx.translate(Math.random()*6-3, Math.random()*6-3);
-}
-
-// player with rotation
-ctx.save();
-ctx.translate(player.x, player.y);
-ctx.rotate(player.vel * 0.05);
-
+// player
 ctx.fillStyle="cyan";
-ctx.fillRect(-player.size, -player.size, player.size*2, player.size*2);
-
-ctx.restore();
+ctx.fillRect(player.x-player.size, player.y-player.size, player.size*2, player.size*2);
 
 // saws
 for(let saw of saws){
 drawSaw(saw.x, saw.y, saw.r);
 }
 
+// coins
+ctx.fillStyle="gold";
+for(let c of coins){
+ctx.beginPath();
+ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
+ctx.fill();
+}
+
 // UI
 ctx.fillStyle="white";
 ctx.font="20px Arial";
 ctx.fillText("Score: " + Math.floor(score), 15, 30);
-ctx.fillText("Difficulty: " + difficulty.toFixed(1), 15, 55);
-ctx.fillText("High Score: " + highScore, 15, 80);
+ctx.fillText("Coins: " + totalCoins, 15, 55);
+ctx.fillText("Speed Lv: " + speedLevel, 15, 80);
 
-// game over
+// game over + shop
 if(gameOver){
 
 ctx.fillStyle="white";
@@ -219,10 +223,10 @@ ctx.fillText("Game Over", canvas.width/2 - 140, canvas.height/2);
 ctx.font="20px Arial";
 ctx.fillText("Press R to Restart", canvas.width/2 - 90, canvas.height/2 + 40);
 
-}
+let cost = speedLevel * 10;
 
-if(shakeTime > 0){
-  ctx.restore();
+ctx.fillText("Press B to Upgrade Speed ("+cost+" coins)", canvas.width/2 - 150, canvas.height/2 + 70);
+
 }
 
 }
