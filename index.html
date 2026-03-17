@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival Abilities</title>
+<title>Wave Survival Final</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;}
 canvas{display:block;margin:auto;background:#111;}
@@ -19,38 +19,45 @@ const ctx = canvas.getContext("2d");
 // ===== STATE =====
 let state="menu";
 
-// ===== GAME =====
+// ===== DATA =====
 let player,saws,coins,particles;
 let goingUp=false;
-let score=0,frame=0;
-let ability="speed";
+let score=0,frame=0,difficulty=1;
 
 // ===== SAVE =====
 let totalCoins=+localStorage.getItem("coins")||0;
-let achievements=JSON.parse(localStorage.getItem("ach"))||{
+
+let ownedAbilities = JSON.parse(localStorage.getItem("ownedAbilities")) || {
+speed:true,
+magnet:false,
+shield:false,
+slow:false
+};
+
+let ability="speed";
+
+let achievements = JSON.parse(localStorage.getItem("ach")) || {
 score100:false,
 coins100:false
 };
 
-// ===== SOUND SYSTEM =====
+function save(){
+localStorage.setItem("coins",totalCoins);
+localStorage.setItem("ownedAbilities",JSON.stringify(ownedAbilities));
+localStorage.setItem("ach",JSON.stringify(achievements));
+}
+
+// ===== SOUND =====
 const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 
-function playSound(type){
+function sound(freq,dur){
 let o=audioCtx.createOscillator();
 let g=audioCtx.createGain();
-
-o.connect(g);
-g.connect(audioCtx.destination);
-
-if(type==="coin") o.frequency.value=700;
-if(type==="hit") o.frequency.value=100;
-if(type==="start") o.frequency.value=300;
-
+o.connect(g); g.connect(audioCtx.destination);
+o.frequency.value=freq;
 g.gain.setValueAtTime(0.1,audioCtx.currentTime);
-g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.2);
-
-o.start();
-o.stop(audioCtx.currentTime+0.2);
+g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+o.start(); o.stop(audioCtx.currentTime+dur);
 }
 
 // ===== RESET =====
@@ -58,7 +65,7 @@ function resetGame(){
 
 player={
 x:120,
-y:225,
+y:canvas.height/2,
 size:10,
 speed:4,
 shield:0
@@ -69,26 +76,41 @@ if(ability==="speed") player.speed=6;
 if(ability==="shield") player.shield=1;
 
 saws=[]; coins=[]; particles=[];
-score=0; frame=0;
+score=0; frame=0; difficulty=1;
 }
 
 // ===== INPUT =====
 document.addEventListener("keydown",e=>{
 
 if(state==="menu"){
-if(e.key==="Enter"){state="game";resetGame(); playSound("start");}
-if(e.key==="1") ability="speed";
-if(e.key==="2") ability="magnet";
-if(e.key==="3") ability="shield";
-if(e.key==="4") ability="slow";
+if(e.key==="Enter"){state="game"; resetGame(); sound(300,0.2);}
+if(e.key==="s") state="shop";
+if(e.key==="a") state="achievements";
 }
 
-if(state==="game"){
+else if(state==="game"){
 if(e.key==="w"||e.key==="ArrowUp") goingUp=true;
 }
 
-if(state==="gameover"){
-if(e.key==="r"){state="game";resetGame();}
+else if(state==="gameover"){
+if(e.key==="r"){state="game"; resetGame();}
+if(e.key==="s") state="shop";
+}
+
+else if(state==="shop"){
+if(e.key==="Escape") state="menu";
+
+if(e.key==="1") buyAbility("magnet",50);
+if(e.key==="2") buyAbility("shield",70);
+if(e.key==="3") buyAbility("slow",60);
+if(e.key==="4") ability="speed";
+if(e.key==="5" && ownedAbilities.magnet) ability="magnet";
+if(e.key==="6" && ownedAbilities.shield) ability="shield";
+if(e.key==="7" && ownedAbilities.slow) ability="slow";
+}
+
+else if(state==="achievements"){
+if(e.key==="Escape") state="menu";
 }
 
 if(e.key==="Escape") state="menu";
@@ -99,36 +121,31 @@ document.addEventListener("keyup",e=>{
 if(e.key==="w"||e.key==="ArrowUp") goingUp=false;
 });
 
-// MOBILE
-canvas.addEventListener("touchstart",()=>goingUp=true);
-canvas.addEventListener("touchend",()=>goingUp=false);
-
-// ===== PATTERNS =====
-function spawnPattern(){
-
-let type = Math.floor(Math.random()*3);
-
-// wave
-if(type===0){
-for(let i=0;i<5;i++){
-saws.push({x:900+i*60,y:200+Math.sin(i)*100,r:20,speed:4});
+// ===== SHOP =====
+function buyAbility(name,cost){
+if(!ownedAbilities[name] && totalCoins>=cost){
+totalCoins-=cost;
+ownedAbilities[name]=true;
+save();
 }
 }
 
-// tunnel
-if(type===1){
-for(let y=0;y<450;y+=80){
-saws.push({x:900,y:y,r:25,speed:4});
-}
-}
-
-// burst
-if(type===2){
-for(let i=0;i<8;i++){
-saws.push({x:900,y:Math.random()*450,r:15,speed:5});
-}
+// ===== SPAWN =====
+function spawnSaw(){
+saws.push({
+x:canvas.width+40,
+y:Math.random()*canvas.height,
+r:18 + difficulty*2,
+speed:3 + difficulty*0.4
+});
 }
 
+function spawnCoin(){
+coins.push({
+x:canvas.width+40,
+y:Math.random()*(canvas.height-40)+20,
+r:6
+});
 }
 
 // ===== UPDATE =====
@@ -136,20 +153,24 @@ function update(){
 
 if(state!=="game") return;
 
-frame++; score+=0.5;
+frame++;
+score+=0.5;
+difficulty = 1 + score/60;
 
 // movement
-if(goingUp) player.y-=player.speed;
-else player.y+=player.speed;
+if(goingUp) player.y -= player.speed;
+else player.y += player.speed;
 
-player.y=Math.max(10,Math.min(440,player.y));
+// bounds FIX
+player.y = Math.max(player.size, Math.min(canvas.height-player.size, player.y));
 
-// spawn patterns
-if(frame%120===0) spawnPattern();
+// spawn
+if(frame % Math.floor(Math.max(25, 90 - difficulty*5)) === 0){
+spawnSaw();
+}
 
-// coins
-if(frame%100===0){
-coins.push({x:900,y:Math.random()*450,r:6});
+if(frame % 110 === 0){
+spawnCoin();
 }
 
 // saws
@@ -157,11 +178,10 @@ for(let i=saws.length-1;i>=0;i--){
 let s=saws[i];
 
 let slowFactor = (ability==="slow") ? 0.6 : 1;
-
 s.x -= s.speed * slowFactor;
 
-// collision
 let dx=player.x-s.x, dy=player.y-s.y;
+
 if(Math.hypot(dx,dy) < s.r + player.size){
 
 if(player.shield>0){
@@ -170,11 +190,12 @@ saws.splice(i,1);
 continue;
 }
 
-playSound("hit");
+sound(100,0.2);
 state="gameover";
 }
 
-if(s.x<-50) saws.splice(i,1);
+// cleanup
+if(s.x<-100) saws.splice(i,1);
 }
 
 // coins
@@ -182,23 +203,24 @@ for(let i=coins.length-1;i>=0;i--){
 let c=coins[i];
 
 let dx=player.x-c.x, dy=player.y-c.y;
-let d=Math.hypot(dx,dy);
+let dist=Math.hypot(dx,dy);
 
-// magnet ability
-if(ability==="magnet" && d<120){
+// magnet
+if(ability==="magnet" && dist<120){
 c.x += dx*0.05;
 c.y += dy*0.05;
 }else{
 c.x -= 4;
 }
 
-if(d < c.r + player.size){
+if(dist < c.r + player.size){
 totalCoins++;
 particles.push({x:c.x,y:c.y,life:20});
 coins.splice(i,1);
-playSound("coin");
+sound(700,0.05);
 }
 
+// cleanup
 if(c.x<-50) coins.splice(i,1);
 }
 
@@ -214,14 +236,13 @@ if(p.life<=0) particles.splice(i,1);
 if(score>100) achievements.score100=true;
 if(totalCoins>100) achievements.coins100=true;
 
-localStorage.setItem("coins",totalCoins);
-localStorage.setItem("ach",JSON.stringify(achievements));
+save();
 }
 
 // ===== DRAW =====
 function draw(){
 
-ctx.clearRect(0,0,900,450);
+ctx.clearRect(0,0,canvas.width,canvas.height);
 
 // MENU
 if(state==="menu"){
@@ -230,10 +251,9 @@ ctx.font="40px Arial";
 ctx.fillText("Wave Survival",300,150);
 
 ctx.font="20px Arial";
-ctx.fillText("ENTER to Start",350,200);
-
-ctx.fillText("1 Speed  2 Magnet  3 Shield  4 Slow",260,250);
-ctx.fillText("Selected: "+ability,350,290);
+ctx.fillText("ENTER Start",360,200);
+ctx.fillText("S Shop | A Achievements",300,240);
+ctx.fillText("Selected: "+ability,350,280);
 }
 
 // GAME
@@ -241,9 +261,9 @@ if(state==="game"||state==="gameover"){
 
 // player
 ctx.fillStyle="cyan";
-ctx.fillRect(player.x,player.y,20,20);
+ctx.fillRect(player.x-player.size, player.y-player.size, 20, 20);
 
-// shield visual
+// shield
 if(player.shield>0){
 ctx.strokeStyle="blue";
 ctx.beginPath();
@@ -275,17 +295,52 @@ ctx.fillRect(p.x,p.y,2,2);
 
 // UI
 ctx.fillStyle="white";
-ctx.fillText("Score:"+Math.floor(score),10,20);
-ctx.fillText("Coins:"+totalCoins,10,40);
+ctx.fillText("Score: "+Math.floor(score),10,20);
+ctx.fillText("Coins: "+totalCoins,10,40);
 
 // game over
 if(state==="gameover"){
 ctx.font="30px Arial";
 ctx.fillText("Game Over",350,200);
 ctx.font="18px Arial";
-ctx.fillText("R to Retry",370,230);
+ctx.fillText("R Retry | S Shop",350,230);
 }
 }
+
+// SHOP
+if(state==="shop"){
+ctx.fillStyle="white";
+ctx.font="30px Arial";
+ctx.fillText("Shop",400,80);
+
+ctx.font="18px Arial";
+
+ctx.fillText("Buy:",300,140);
+ctx.fillText("1 Magnet (50)",300,170);
+ctx.fillText("2 Shield (70)",300,200);
+ctx.fillText("3 Slow (60)",300,230);
+
+ctx.fillText("Select:",300,280);
+ctx.fillText("4 Speed (default)",300,310);
+ctx.fillText("5 Magnet",300,340);
+ctx.fillText("6 Shield",300,370);
+ctx.fillText("7 Slow",300,400);
+
+ctx.fillText("Coins: "+totalCoins,300,430);
+}
+
+// ACHIEVEMENTS
+if(state==="achievements"){
+ctx.fillStyle="white";
+ctx.font="30px Arial";
+ctx.fillText("Achievements",320,100);
+
+ctx.font="20px Arial";
+ctx.fillText("Score 100: "+(achievements.score100?"✔":"❌"),300,180);
+ctx.fillText("100 Coins: "+(achievements.coins100?"✔":"❌"),300,220);
+ctx.fillText("ESC to Menu",300,300);
+}
+
 }
 
 // LOOP
