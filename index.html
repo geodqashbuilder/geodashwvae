@@ -285,7 +285,7 @@ function draw(){
         ctx.fillStyle="darkred"; for(let b of bullets) ctx.fillRect(b.x-b.size/2,b.y-b.size/2,b.size,b.size);
 
         // Spikes
-        ctx.fillStyle="orange"; for(let s of spikes) ctx.fillRect(s.x-s.size/2,s.y-s.size/2,s.size,s.size);
+        ctx.fillStyle="#00FF00"; for(let s of spikes) ctx.fillRect(s.x-s.size/2,s.y-s.size/2,s.size,s.size);
 
         // Boss
         if(boss){ ctx.fillStyle="purple"; ctx.fillRect(boss.x-boss.size/2,boss.y-boss.size/2,boss.size,boss.size); }
