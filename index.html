@@ -2,11 +2,11 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival - Powerups + Mobile</title>
+<title>Wave Survival - Boss + Mobile</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;font-family:Arial;}
 canvas{display:block;margin:auto;background:#111;}
-button{position:absolute;font:16px Arial;cursor:pointer;}
+button{position:absolute;font:16px Arial;cursor:pointer;padding:10px 20px;}
 </style>
 </head>
 <body>
@@ -23,6 +23,7 @@ let state = "menu";
 // ===== GAME DATA =====
 let player, saws=[], coins=[], particles=[];
 let powerUps=[], activeEffects={};
+let boss=null;
 
 let goingUp=false, score=0, frame=0, difficulty=1;
 
@@ -75,19 +76,14 @@ function resetGame(){
 
     saws=[]; coins=[]; particles=[];
     powerUps=[]; activeEffects={};
+    boss=null;
 
     score=0; frame=0; difficulty=1;
 }
 
 // ===== INPUT =====
 document.addEventListener("keydown", e=>{
-    if(e.key==="Escape"){state="menu"; clearButtons();}
-    if(state==="menu"){
-        if(e.key==="Enter"){state="game"; resetGame();}
-        if(e.key==="s"){state="shop"; setupShop();}
-        if(e.key==="k"){state="abilities"; setupAbilities();}
-        if(e.key==="c"){state="skins"; setupSkins();}
-    }
+    if(e.key==="Escape"){state="menu"; clearButtons(); setupMenu();}
     if(state==="game"){if(e.key==="w"||e.key==="ArrowUp") goingUp=true;}
     if(state==="gameover"){if(e.key==="r"){state="game"; resetGame();}}
 });
@@ -95,15 +91,9 @@ document.addEventListener("keyup", e=>{
     if(e.key==="w"||e.key==="ArrowUp") goingUp=false;
 });
 
-// 📱 MOBILE CONTROLS
-canvas.addEventListener("touchstart", e=>{
-    e.preventDefault();
-    goingUp = true;
-});
-canvas.addEventListener("touchend", e=>{
-    e.preventDefault();
-    goingUp = false;
-});
+// 📱 TOUCH
+canvas.addEventListener("touchstart", e=>{e.preventDefault(); goingUp=true;});
+canvas.addEventListener("touchend", e=>{e.preventDefault(); goingUp=false;});
 canvas.addEventListener("touchcancel", ()=> goingUp=false);
 
 // ===== SPAWN =====
@@ -111,31 +101,31 @@ function spawnSaw(){ saws.push({x:canvas.width+40,y:Math.random()*canvas.height,
 function spawnCoin(){ coins.push({x:canvas.width+40,y:Math.random()*(canvas.height-40)+20,r:6}); }
 
 function spawnPowerUp(){
-    const types = ["speed","magnet","shield","slow"];
-    let type = types[Math.floor(Math.random()*types.length)];
-    powerUps.push({
-        x: canvas.width+40,
-        y: Math.random()*(canvas.height-40)+20,
-        r: 8,
-        type: type
-    });
+    const types=["speed","magnet","shield","slow"];
+    let type=types[Math.floor(Math.random()*types.length)];
+    powerUps.push({x:canvas.width+40,y:Math.random()*canvas.height,r:8,type});
+}
+
+// 👹 BOSS SPAWN
+function spawnBoss(){
+    boss = {
+        x: canvas.width+100,
+        y: canvas.height/2,
+        r: 40,
+        hp: 20
+    };
 }
 
 // ===== PARTICLES =====
 function burst(x,y){
     for(let i=0;i<10;i++){
-        particles.push({
-            x,y,
-            vx:(Math.random()-0.5)*4,
-            vy:(Math.random()-0.5)*4,
-            life:20
-        });
+        particles.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:20});
     }
 }
 
 // ===== POWER EFFECT =====
 function activatePowerUp(type){
-    activeEffects[type] = 300;
+    activeEffects[type]=300;
 }
 
 // ===== UPDATE =====
@@ -144,46 +134,71 @@ function update(){
 
     frame++; score+=0.5; difficulty=1+score/80;
 
-    // APPLY EFFECTS
-    let speedMultiplier = 1;
-    if(activeEffects.speed) speedMultiplier = 1.8;
-    if(activeEffects.slow) speedMultiplier = 0.6;
+    // SPAWN BOSS every 500 score
+    if(!boss && Math.floor(score)%500===0 && score>0){
+        spawnBoss();
+    }
 
-    player.y += goingUp ? -player.speed * speedMultiplier : player.speed * speedMultiplier;
+    let speedMultiplier=1;
+    if(activeEffects.speed) speedMultiplier=1.8;
+    if(activeEffects.slow) speedMultiplier=0.6;
+
+    player.y += goingUp ? -player.speed*speedMultiplier : player.speed*speedMultiplier;
 
     for(let key in activeEffects){
         activeEffects[key]--;
-        if(activeEffects[key] <= 0) delete activeEffects[key];
+        if(activeEffects[key]<=0) delete activeEffects[key];
     }
 
-    player.y=Math.max(player.size, Math.min(canvas.height-player.size,player.y));
+    player.y=Math.max(player.size,Math.min(canvas.height-player.size,player.y));
 
-    let rate = Math.max(25, 90-difficulty*5);
-    if(ability==="slow") rate *= 1.3;
+    if(!boss){
+        let rate=Math.max(25,90-difficulty*5);
+        if(frame%Math.floor(rate)===0) spawnSaw();
+    }
 
-    if(frame%Math.floor(rate)===0) spawnSaw();
     if(frame%110===0) spawnCoin();
     if(frame%300===0) spawnPowerUp();
 
     // SAWS
     for(let i=saws.length-1;i>=0;i--){
         let s=saws[i];
-        s.x -= s.speed*(ability==="slow"?0.6:1);
+        s.x -= s.speed;
 
         let dx=player.x-s.x, dy=player.y-s.y;
-
         if(Math.hypot(dx,dy)<s.r+player.size){
-            if(player.shield>0 || activeEffects.shield){
+            if(player.shield>0||activeEffects.shield){
                 if(player.shield>0) player.shield--;
                 burst(player.x,player.y);
                 saws.splice(i,1);
                 continue;
             }
-            play(100,0.2);
             state="gameover";
         }
-
         if(s.x<-100) saws.splice(i,1);
+    }
+
+    // 👹 BOSS LOGIC
+    if(boss){
+        boss.x -= 2;
+
+        let dx=player.x-boss.x, dy=player.y-boss.y;
+
+        if(Math.hypot(dx,dy)<boss.r+player.size){
+            if(player.shield>0||activeEffects.shield){
+                if(player.shield>0) player.shield--;
+                boss.hp--;
+                burst(player.x,player.y);
+            } else {
+                state="gameover";
+            }
+        }
+
+        if(boss.hp<=0){
+            burst(boss.x,boss.y);
+            totalCoins+=20;
+            boss=null;
+        }
     }
 
     // COINS
@@ -191,16 +206,14 @@ function update(){
         let c=coins[i];
         let dx=player.x-c.x, dy=player.y-c.y, dist=Math.hypot(dx,dy);
 
-        if((ability==="magnet" || activeEffects.magnet) && dist<150){
-            c.x+=dx*0.08;
-            c.y+=dy*0.08;
+        if((ability==="magnet"||activeEffects.magnet)&&dist<150){
+            c.x+=dx*0.08; c.y+=dy*0.08;
         } else c.x-=4;
 
         if(dist<c.r+player.size){
             totalCoins++;
             burst(c.x,c.y);
             coins.splice(i,1);
-            play(700,0.05);
         }
 
         if(c.x<-50) coins.splice(i,1);
@@ -208,30 +221,23 @@ function update(){
 
     // POWERUPS
     for(let i=powerUps.length-1;i>=0;i--){
-        let p = powerUps[i];
-        p.x -= 4;
+        let p=powerUps[i];
+        p.x-=4;
 
-        let dx = player.x - p.x;
-        let dy = player.y - p.y;
-        let dist = Math.hypot(dx,dy);
-
-        if(dist < p.r + player.size){
+        let dx=player.x-p.x, dy=player.y-p.y;
+        if(Math.hypot(dx,dy)<p.r+player.size){
             activatePowerUp(p.type);
             burst(p.x,p.y);
-            play(500,0.1);
             powerUps.splice(i,1);
-            continue;
         }
 
-        if(p.x < -50) powerUps.splice(i,1);
+        if(p.x<-50) powerUps.splice(i,1);
     }
 
     // PARTICLES
     for(let i=particles.length-1;i>=0;i--){
         let p=particles[i];
-        p.x+=p.vx;
-        p.y+=p.vy;
-        p.life--;
+        p.x+=p.vx; p.y+=p.vy; p.life--;
         if(p.life<=0) particles.splice(i,1);
     }
 
@@ -244,20 +250,10 @@ function draw(){
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
     if(state==="game"||state==="gameover"){
-        let color="white";
-        if(selectedSkin==="red") color="red";
-        else if(selectedSkin==="green") color="green";
+        ctx.fillStyle="white";
+        ctx.fillRect(player.x-10,player.y-10,20,20);
 
-        ctx.fillStyle=color;
-        ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
-
-        if(player.shield>0){
-            ctx.strokeStyle="blue";
-            ctx.beginPath();
-            ctx.arc(player.x,player.y,20,0,Math.PI*2);
-            ctx.stroke();
-        }
-
+        // SAWS
         ctx.fillStyle="red";
         for(let s of saws){
             ctx.beginPath();
@@ -265,123 +261,41 @@ function draw(){
             ctx.fill();
         }
 
-        ctx.fillStyle="gold";
-        for(let c of coins){
+        // 👹 BOSS DRAW
+        if(boss){
+            ctx.fillStyle="purple";
             ctx.beginPath();
-            ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+            ctx.arc(boss.x,boss.y,boss.r,0,Math.PI*2);
             ctx.fill();
-        }
 
-        // POWERUPS DRAW
-        for(let p of powerUps){
-            if(p.type==="speed") ctx.fillStyle="cyan";
-            else if(p.type==="magnet") ctx.fillStyle="purple";
-            else if(p.type==="shield") ctx.fillStyle="blue";
-            else if(p.type==="slow") ctx.fillStyle="lightgreen";
-
-            ctx.beginPath();
-            ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-            ctx.fill();
-        }
-
-        ctx.fillStyle="yellow";
-        for(let p of particles){
-            ctx.fillRect(p.x,p.y,2,2);
+            ctx.fillStyle="white";
+            ctx.fillText("Boss HP: "+boss.hp,boss.x-30,boss.y-boss.r-10);
         }
 
         ctx.fillStyle="white";
         ctx.fillText("Score:"+Math.floor(score),10,20);
-        ctx.fillText("Coins:"+totalCoins,10,40);
-        ctx.fillText("Ability:"+ability,10,60);
-        ctx.fillText("PowerUps:"+Object.keys(activeEffects).join(","),10,80);
     }
 
     if(state==="menu"){
         ctx.fillStyle="white";
         ctx.font="30px Arial";
         ctx.fillText("Wave Survival",300,150);
-        ctx.font="20px Arial";
-        ctx.fillText("ENTER Start | S Shop | K Abilities | C Skins",150,220);
     }
 
     if(state==="gameover"){
-        ctx.fillStyle="white";
         ctx.fillText("Game Over",350,200);
-        ctx.fillText("Press R to Restart",320,240);
-    }
-
-    if(state==="shop"){ ctx.fillStyle="white"; ctx.fillText("Shop",400,120); }
-    if(state==="abilities"){ ctx.fillText("Abilities",380,120); }
-    if(state==="skins"){ ctx.fillText("Skins",400,120); }
-}
-
-// ===== MENUS =====
-function setupShop(){
-    clearButtons();
-
-    createMenuButton("Buy Magnet 100",300,150,()=>{
-        if(totalCoins>=100){
-            ownedAbilities.magnet=true;
-            totalCoins-=100;
-            save();
-        }
-    });
-
-    createMenuButton("Buy Shield 50",300,180,()=>{
-        if(totalCoins>=50){
-            ownedAbilities.shield=true;
-            totalCoins-=50;
-            save();
-        }
-    });
-
-    createMenuButton("Buy Slow 60",300,210,()=>{
-        if(totalCoins>=60){
-            ownedAbilities.slow=true;
-            totalCoins-=60;
-            save();
-        }
-    });
-
-    let y=250;
-    for(let sk in skins){
-        if(!skins[sk]){
-            createMenuButton(`Buy ${sk} ${skinPrices[sk]}`,300,y,()=>{
-                if(totalCoins>=skinPrices[sk]){
-                    skins[sk]=true;
-                    totalCoins-=skinPrices[sk];
-                    save();
-                    setupShop();
-                }
-            });
-            y+=30;
-        }
     }
 }
 
-function setupAbilities(){
+// ===== MENU SETUP =====
+function setupMenu(){
     clearButtons();
-    let y=150;
-    for(let ab in ownedAbilities){
-        createMenuButton(ab+(ownedAbilities[ab]?" (owned)":" (LOCKED)"),300,y,()=>{
-            if(ownedAbilities[ab]){
-                ability=ab;
-                resetGame();
-            }
-        });
-        y+=30;
-    }
-}
 
-function setupSkins(){
-    clearButtons();
-    let y=150;
-    for(let sk in skins){
-        createMenuButton(sk+(skins[sk]?" (selected)":" (LOCKED)"),300,y,()=>{
-            if(skins[sk]) selectedSkin=sk;
-        });
-        y+=30;
-    }
+    createMenuButton("START",380,220,()=>{
+        state="game";
+        resetGame();
+        clearButtons();
+    });
 }
 
 // ===== LOOP =====
@@ -390,6 +304,8 @@ function loop(){
     draw();
     requestAnimationFrame(loop);
 }
+
+setupMenu();
 loop();
 
 </script>
