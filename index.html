@@ -28,7 +28,7 @@ let goingUp=false, score=0, frame=0, difficulty=1;
 
 // ===== SAVE =====
 let totalCoins = +localStorage.getItem("coins")||0;
-let ownedAbilities = JSON.parse(localStorage.getItem("ownedAbilities"))||{speed:true,magnet:false,shield:false,slow:false};
+let ownedAbilities = JSON.parse(localStorage.getItem("ownedAbilities"))||{speed:true,magnet:false,shield:false,slow:false,gun:false};
 let ability = "speed";
 
 let skins = JSON.parse(localStorage.getItem("skins"))||{default:true,red:false,green:false};
@@ -77,13 +77,15 @@ function resetGame(){
     powerUps=[]; activeEffects={};
 
     score=0; frame=0; difficulty=1;
+
+    // gun cooldown
+    gunCooldown = 0;
 }
 
 // ===== INPUT =====
 document.addEventListener("keydown", e=>{
     if(e.key==="Escape"){state="menu"; clearButtons(); setupMenu();}
     if(state==="menu"){
-        // ❌ ENTER removed
         if(e.key==="s"){state="shop"; setupShop();}
         if(e.key==="k"){state="abilities"; setupAbilities();}
         if(e.key==="c"){state="skins"; setupSkins();}
@@ -138,6 +140,9 @@ function activatePowerUp(type){
     activeEffects[type] = 300;
 }
 
+// ===== GUN =====
+let gunCooldown = 0; // frames until next shot
+
 // ===== UPDATE =====
 function update(){
     if(state!=="game") return;
@@ -182,6 +187,19 @@ function update(){
         }
 
         if(s.x<-100) saws.splice(i,1);
+    }
+
+    // ===== GUN SHOOTING =====
+    if(ability==="gun"){
+        if(gunCooldown <= 0){
+            if(saws.length>0){
+                let nearest = saws.reduce((a,b)=> (Math.hypot(a.x-player.x,a.y-player.y) < Math.hypot(b.x-player.x,b.y-player.y) ? a : b));
+                burst(nearest.x, nearest.y);
+                play(900,0.1);
+                saws = saws.filter(s => s !== nearest);
+            }
+            gunCooldown = 600; // 10s cooldown at 60fps
+        } else gunCooldown--;
     }
 
     for(let i=coins.length-1;i>=0;i--){
@@ -288,6 +306,10 @@ function draw(){
         ctx.fillText("Coins:"+totalCoins,10,40);
         ctx.fillText("Ability:"+ability,10,60);
         ctx.fillText("PowerUps:"+Object.keys(activeEffects).join(","),10,80);
+
+        if(ability==="gun"){
+            ctx.fillText("Gun CD: "+Math.max(0,Math.floor(gunCooldown/60))+"s",10,100);
+        }
     }
 
     if(state==="menu"){
@@ -347,7 +369,16 @@ function setupShop(){
         }
     });
 
-    let y=250;
+    createMenuButton("Buy Gun 150",300,240,()=>{
+        if(totalCoins>=150){
+            ownedAbilities.gun=true;
+            totalCoins-=150;
+            save();
+            setupShop();
+        }
+    });
+
+    let y=280;
     for(let sk in skins){
         if(!skins[sk]){
             createMenuButton(`Buy ${sk} ${skinPrices[sk]}`,300,y,()=>{
