@@ -211,7 +211,7 @@ function update(){
         boss.timer--;
         if(boss.timer <= 0){
             bombs.push({x: boss.x, y: boss.y, size:30, vx:0, vy:0});
-            megaCoins.push({x: boss.x, y: boss.y, r:10, value:25, vy:2});
+            megaCoins.push({x: boss.x, y: boss.y, r:10, value:25});
             boss = null;
         }
     }
@@ -232,15 +232,28 @@ function update(){
         if(s.x<-50) spikes.splice(i,1);
     }
 
-    // ===== MEGA COINS =====
+    // ===== MEGA COINS HOMING =====
     for(let i=megaCoins.length-1;i>=0;i--){
         let c = megaCoins[i];
-        if(c.vy) c.y += c.vy;
-        let dx = player.x - c.x, dy = player.y - c.y, dist = Math.hypot(dx,dy);
+
+        // Vector toward player
+        let dx = player.x - c.x;
+        let dy = player.y - c.y;
+        let dist = Math.hypot(dx, dy);
+        if(dist < 1) dist = 1; // avoid division by zero
+
+        // Move toward player
+        let speed = 4;
+        c.x += (dx / dist) * speed;
+        c.y += (dy / dist) * speed;
+
+        // Collect
         if(dist < player.size + c.r){
-            totalCoins += c.value; burst(c.x,c.y); megaCoins.splice(i,1); play(900,0.05);
+            totalCoins += c.value;
+            burst(c.x, c.y);
+            megaCoins.splice(i,1);
+            play(900,0.05);
         }
-        if(c.y > canvas.height + 20) megaCoins.splice(i,1);
     }
 
     for(let i=coins.length-1;i>=0;i--){
