@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival - boss update</title>
+<title>Wave Survival - Powerups + Mobile</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;font-family:Arial;}
 canvas{display:block;margin:auto;background:#111;}
@@ -21,11 +21,11 @@ const ctx = canvas.getContext("2d");
 let state = "menu";
 
 // ===== GAME DATA =====
-let player, saws=[], coins=[], particles=[];
-let powerUps=[], activeEffects={}, bullets=[];
-let boss = null, spikes=[], bombs=[], megaCoins=[]; 
+let player, saws=[], coins=[], particles=[], bullets=[], spikes=[], bombs=[], megaCoins=[];
+let powerUps=[], activeEffects={};
 
 let goingUp=false, score=0, frame=0, difficulty=1;
+let boss = null;
 
 // ===== SAVE =====
 let totalCoins = +localStorage.getItem("coins")||0;
@@ -74,8 +74,8 @@ function resetGame(){
     if(ability==="slow") player.speed = 3;
     if(ability==="shield") player.shield = 2;
 
-    saws=[]; coins=[]; particles=[]; powerUps=[]; activeEffects={}; bullets=[];
-    boss=null; spikes=[]; bombs=[]; megaCoins=[];
+    saws=[]; coins=[]; particles=[]; powerUps=[]; bullets=[]; spikes=[]; bombs=[]; megaCoins=[];
+    boss = null;
 
     score=0; frame=0; difficulty=1;
 
@@ -151,7 +151,6 @@ function update(){
     if(frame%110===0) spawnCoin();
     if(frame % 1500 === 0) spawnPowerUp(); 
 
-    // ===== SAWS =====
     for(let i=saws.length-1;i>=0;i--){
         let s=saws[i];
         s.x -= s.speed*(ability==="slow"?0.6:1);
@@ -194,35 +193,16 @@ function update(){
         if(b && b.x>canvas.width+50) bullets.splice(i,1);
     }
 
-    // ===== COINS =====
-    for(let i=coins.length-1;i>=0;i--){
-        let c=coins[i];
-        let dx=player.x-c.x, dy=player.y-c.y, dist=Math.hypot(dx,dy);
-        if((ability==="magnet" || activeEffects.magnet) && dist<150){ c.x+=dx*0.08; c.y+=dy*0.08; } else c.x-=4;
-        if(dist<c.r+player.size){ totalCoins++; burst(c.x,c.y); coins.splice(i,1); play(700,0.05); }
-        if(c.x<-50) coins.splice(i,1);
+    // ===== BOSS SPAWN & LOGIC =====
+    if(score>=1000 && Math.floor(score) % 1000 === 0 && boss === null){
+        boss = {x: canvas.width+100, y: canvas.height/2, size:40, timer:600, vy: 2};
     }
 
-    // ===== POWERUPS =====
-    for(let i=powerUps.length-1;i>=0;i--){
-        let p = powerUps[i]; p.x -= 4;
-        let dx = player.x - p.x, dy = player.y - p.y, dist = Math.hypot(dx,dy);
-        if(dist < p.r + player.size){ activatePowerUp(p.type); burst(p.x,p.y); play(500,0.1); powerUps.splice(i,1); continue; }
-        if(p.x < -50) powerUps.splice(i,1);
-    }
-
-    // ===== PARTICLES =====
-    for(let i=particles.length-1;i>=0;i--){
-        let p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.life--; if(p.life<=0) particles.splice(i,1);
-    }
-
-    // ===== BOSS SPAWN =====
-    if(Math.floor(score) % 1000 === 0 && boss === null && score>0){ boss = {x: canvas.width+100, y: canvas.height/2, size:40, timer:600}; }
-
-    // ===== BOSS LOGIC =====
     if(boss){
         boss.x -= 1;
-
+        boss.y += boss.vy;
+        if(boss.y < boss.size/2 || boss.y > canvas.height-boss.size/2) boss.vy *= -1;
+        
         // shoot spikes every 60 frames
         if(frame % 60 === 0){
             spikes.push({x: boss.x - 20, y: boss.y, vx: -5, vy: 0, size:8});
@@ -231,37 +211,53 @@ function update(){
         boss.timer--;
         if(boss.timer <= 0){
             bombs.push({x: boss.x, y: boss.y, size:30, vx:0, vy:0});
+            megaCoins.push({x: boss.x, y: boss.y, r:10, value:25, vy:2});
             boss = null;
         }
     }
 
     // ===== SPIKES =====
     for(let i=spikes.length-1;i>=0;i--){
-        let s = spikes[i];
-        s.x += s.vx; s.y += s.vy;
-        if(Math.hypot(player.x-s.x, player.y-s.y)<player.size+s.size){
-            if(player.shield>0 || activeEffects.shield){ if(player.shield>0) player.shield--; burst(player.x,player.y); }
-            else{ play(100,0.2); state="gameover"; }
-            spikes.splice(i,1); continue;
+        let s=spikes[i]; s.x += s.vx; s.y += s.vy;
+        if(Math.hypot(s.x-player.x,s.y-player.y)<s.size+player.size){
+            if(player.shield>0 || activeEffects.shield){
+                if(player.shield>0) player.shield--;
+                burst(player.x,player.y);
+                spikes.splice(i,1);
+                continue;
+            }
+            play(100,0.2);
+            state="gameover";
         }
         if(s.x<-50) spikes.splice(i,1);
-    }
-
-    // ===== BOMBS =====
-    for(let i=bombs.length-1;i>=0;i--){
-        let b = bombs[i];
-        megaCoins.push({x: b.x, y: b.y, r:10, value:25});
-        bombs.splice(i,1);
     }
 
     // ===== MEGA COINS =====
     for(let i=megaCoins.length-1;i>=0;i--){
         let c = megaCoins[i];
+        if(c.vy) c.y += c.vy;
         let dx = player.x - c.x, dy = player.y - c.y, dist = Math.hypot(dx,dy);
         if(dist < player.size + c.r){
             totalCoins += c.value; burst(c.x,c.y); megaCoins.splice(i,1); play(900,0.05);
         }
+        if(c.y > canvas.height + 20) megaCoins.splice(i,1);
     }
+
+    for(let i=coins.length-1;i>=0;i--){
+        let c=coins[i]; let dx=player.x-c.x, dy=player.y-c.y, dist=Math.hypot(dx,dy);
+        if((ability==="magnet" || activeEffects.magnet) && dist<150){ c.x+=dx*0.08; c.y+=dy*0.08; } else c.x-=4;
+        if(dist<c.r+player.size){ totalCoins++; burst(c.x,c.y); coins.splice(i,1); play(700,0.05); }
+        if(c.x<-50) coins.splice(i,1);
+    }
+
+    for(let i=powerUps.length-1;i>=0;i--){
+        let p = powerUps[i]; p.x -= 4;
+        let dx = player.x - p.x, dy = player.y - p.y, dist = Math.hypot(dx,dy);
+        if(dist < p.r + player.size){ activatePowerUp(p.type); burst(p.x,p.y); play(500,0.1); powerUps.splice(i,1); continue; }
+        if(p.x < -50) powerUps.splice(i,1);
+    }
+
+    for(let i=particles.length-1;i>=0;i--){ let p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.life--; if(p.life<=0) particles.splice(i,1); }
 
     save();
 }
@@ -273,23 +269,28 @@ function draw(){
     if(state==="game"||state==="gameover"){
         let color="white"; if(selectedSkin==="red") color="red"; else if(selectedSkin==="green") color="green";
         ctx.fillStyle=color; ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
-
         if(player.shield>0){ ctx.strokeStyle="blue"; ctx.beginPath(); ctx.arc(player.x,player.y,20,0,Math.PI*2); ctx.stroke(); }
 
         ctx.fillStyle="red"; for(let s of saws){ ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
-
         ctx.fillStyle="gold"; for(let c of coins){ ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
 
-        for(let p of powerUps){ ctx.fillStyle=(p.type==="speed")?"cyan":(p.type==="magnet")?"purple":(p.type==="shield")?"blue":"lightgreen"; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); }
+        for(let p of powerUps){
+            ctx.fillStyle=(p.type==="speed")?"cyan":(p.type==="magnet")?"purple":(p.type==="shield")?"blue":"lightgreen";
+            ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+        }
 
         ctx.fillStyle="yellow"; for(let p of particles) ctx.fillRect(p.x,p.y,2,2);
 
-        ctx.fillStyle="white"; for(let b of bullets) ctx.fillRect(b.x-b.size/2,b.y-b.size/2,b.size,b.size);
+        // Bullets
+        ctx.fillStyle="darkred"; for(let b of bullets) ctx.fillRect(b.x-b.size/2,b.y-b.size/2,b.size,b.size);
 
-        // ===== BOSS DRAW =====
-        if(boss){ ctx.fillStyle="darkred"; ctx.fillRect(boss.x-boss.size/2,boss.y-boss.size/2,boss.size,boss.size); }
-        ctx.fillStyle="orange"; for(let s of spikes){ ctx.beginPath(); ctx.arc(s.x,s.y,s.size,0,Math.PI*2); ctx.fill(); }
-        ctx.fillStyle="red"; for(let b of bombs){ ctx.fillRect(b.x-b.size/2,b.y-b.size/2,b.size,b.size); }
+        // Spikes
+        ctx.fillStyle="orange"; for(let s of spikes) ctx.fillRect(s.x-s.size/2,s.y-s.size/2,s.size,s.size);
+
+        // Boss
+        if(boss){ ctx.fillStyle="purple"; ctx.fillRect(boss.x-boss.size/2,boss.y-boss.size/2,boss.size,boss.size); }
+
+        // Mega coins
         ctx.fillStyle="gold"; for(let c of megaCoins){ ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
 
         // UI
@@ -308,10 +309,9 @@ function draw(){
     if(state==="skins"){ ctx.fillText("Skins",400,120); }
 }
 
-// ✅ START BUTTON
+// ===== MENU & SHOP =====
 function setupMenu(){ clearButtons(); createMenuButton("START",400,260,()=>{ state="game"; resetGame(); clearButtons(); }); }
 
-// ===== MENUS =====
 function setupShop(){
     clearButtons();
     createMenuButton("Buy Magnet 100",300,150,()=>{ if(totalCoins>=100){ ownedAbilities.magnet=true; totalCoins-=100; save(); } });
@@ -348,7 +348,8 @@ function setupSkins(){
 
 // ===== LOOP =====
 function loop(){ update(); draw(); requestAnimationFrame(loop); }
-setupMenu(); loop();
+setupMenu();
+loop();
 
 </script>
 </body>
