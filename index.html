@@ -172,7 +172,7 @@ function update(){
     if(ability==="gun"){
         if(gunCooldown <= 0){
             bullets.push({x: player.x+20, y: player.y, size:6, speed:8});
-            gunCooldown = 600; // 10s cooldown
+            gunCooldown = 30; // 10s cooldown
             play(900,0.1);
         } else gunCooldown--;
     }
