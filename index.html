@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival - Powerups + Mobile + High Score + Skins</title>
+<title>Wave Survival - Powerups + Mobile + High Score</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;font-family:Arial;}
 canvas{display:block;margin:auto;background:#111;}
@@ -32,25 +32,8 @@ let totalCoins = +localStorage.getItem("coins")||0;
 let ownedAbilities = JSON.parse(localStorage.getItem("ownedAbilities"))||{speed:true,magnet:false,shield:false,slow:false,gun:false};
 let ability = "speed";
 
-let skins = JSON.parse(localStorage.getItem("skins")) || {
-    default: true,
-    red: false,
-    green: false,
-    blue: false,
-    yellow: false,
-    purple: false,
-    orange: false
-};
-
-let skinPrices = {
-    red: 50,
-    green: 100,
-    blue: 75,
-    yellow: 125,
-    purple: 150,
-    orange: 200
-};
-
+let skins = JSON.parse(localStorage.getItem("skins"))||{default:true,red:false,green:false};
+let skinPrices = {red:50, green:100};
 let selectedSkin = Object.keys(skins).find(k=>skins[k]);
 
 let highScore = +localStorage.getItem("highScore") || 0;
@@ -295,13 +278,9 @@ function draw(){
     ctx.fillStyle="#111"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
     if(state==="game"||state==="gameover"){
-        let color = "white";
-        if(selectedSkin==="red") color="red";
+        let color="white"; 
+        if(selectedSkin==="red") color="red"; 
         else if(selectedSkin==="green") color="green";
-        else if(selectedSkin==="blue") color="blue";
-        else if(selectedSkin==="yellow") color="yellow";
-        else if(selectedSkin==="purple") color="purple";
-        else if(selectedSkin==="orange") color="orange";
         ctx.fillStyle=color; ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
 
         if(player.shield>0){ ctx.strokeStyle="blue"; ctx.beginPath(); ctx.arc(player.x,player.y,20,0,Math.PI*2); ctx.stroke(); }
@@ -358,21 +337,10 @@ function setupShop(){
     createMenuButton("Buy Slow 60",300,210,()=>{ if(totalCoins>=60){ ownedAbilities.slow=true; totalCoins-=60; save(); } });
     createMenuButton("Buy Gun 150",300,240,()=>{ if(totalCoins>=150){ ownedAbilities.gun=true; totalCoins-=150; save(); setupShop(); } });
 
-    let y = 280;
-    for (let sk in skins) {
-        if (!skins[sk]) {
-            createMenuButton(`Buy ${sk} ${skinPrices[sk]}`, 300, y, () => {
-                if (totalCoins >= skinPrices[sk]) {
-                    skins[sk] = true;
-                    totalCoins -= skinPrices[sk];
-                    save();
-                    setupShop();
-                }
-            });
-        } else {
-            createMenuButton(`${sk} (selected)`, 300, y, () => { selectedSkin = sk; });
-        }
-        y += 30;
+    let y=280;
+    for(let sk in skins){
+        createMenuButton(sk+(skins[sk]?" (selected)":" (LOCKED)"),300,y,()=>{ if(skins[sk]) selectedSkin=sk; });
+        y+=30;
     }
 }
 
