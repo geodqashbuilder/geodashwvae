@@ -320,9 +320,73 @@ function setupMenu(){
 }
 
 // ===== MENUS =====
-function setupShop(){ clearButtons(); }
-function setupAbilities(){ clearButtons(); }
-function setupSkins(){ clearButtons(); }
+function setupShop(){
+    clearButtons();
+
+    createMenuButton("Buy Magnet 100",300,150,()=>{
+        if(totalCoins>=100){
+            ownedAbilities.magnet=true;
+            totalCoins-=100;
+            save();
+        }
+    });
+
+    createMenuButton("Buy Shield 50",300,180,()=>{
+        if(totalCoins>=50){
+            ownedAbilities.shield=true;
+            totalCoins-=50;
+            save();
+        }
+    });
+
+    createMenuButton("Buy Slow 60",300,210,()=>{
+        if(totalCoins>=60){
+            ownedAbilities.slow=true;
+            totalCoins-=60;
+            save();
+        }
+    });
+
+    let y=250;
+    for(let sk in skins){
+        if(!skins[sk]){
+            createMenuButton(`Buy ${sk} ${skinPrices[sk]}`,300,y,()=>{
+                if(totalCoins>=skinPrices[sk]){
+                    skins[sk]=true;
+                    totalCoins-=skinPrices[sk];
+                    save();
+                    setupShop();
+                }
+            });
+            y+=30;
+        }
+    }
+}
+
+function setupAbilities(){
+    clearButtons();
+    let y=150;
+    for(let ab in ownedAbilities){
+        createMenuButton(ab+(ownedAbilities[ab]?" (owned)":" (LOCKED)"),300,y,()=>{
+            if(ownedAbilities[ab]){
+                ability=ab;
+                resetGame();
+            }
+        });
+        y+=30;
+    }
+}
+
+function setupSkins(){
+    clearButtons();
+    let y=150;
+    for(let sk in skins){
+        createMenuButton(sk+(skins[sk]?" (selected)":" (LOCKED)"),300,y,()=>{
+            if(skins[sk]) selectedSkin=sk;
+        });
+        y+=30;
+    }
+}
 
 // ===== LOOP =====
 function loop(){
