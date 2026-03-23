@@ -99,7 +99,6 @@ function resetGame(){
 
     score=0; frame=0; difficulty=1;
 
-    // gun cooldown
     gunCooldown = 0;
 }
 
@@ -226,7 +225,6 @@ function update(){
         boss.y += boss.vy;
         if(boss.y < boss.size/2 || boss.y > canvas.height-boss.size/2) boss.vy *= -1;
         
-        // shoot spikes every 60 frames
         if(frame % 60 === 0){
             spikes.push({x: boss.x - 20, y: boss.y, vx: -5, vy: 0, size:8});
         }
@@ -297,8 +295,8 @@ function draw(){
     ctx.fillStyle="#111"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
     if(state==="game"||state==="gameover"){
-        let color="white"; 
-        if(selectedSkin==="red") color="red"; 
+        let color = "white";
+        if(selectedSkin==="red") color="red";
         else if(selectedSkin==="green") color="green";
         else if(selectedSkin==="blue") color="blue";
         else if(selectedSkin==="yellow") color="yellow";
@@ -318,30 +316,32 @@ function draw(){
 
         ctx.fillStyle="yellow"; for(let p of particles) ctx.fillRect(p.x,p.y,2,2);
 
-        // Bullets
         ctx.fillStyle="darkred"; for(let b of bullets) ctx.fillRect(b.x-b.size/2,b.y-b.size/2,b.size,b.size);
-
-        // Spikes
         ctx.fillStyle="#00FF00"; for(let s of spikes) ctx.fillRect(s.x-s.size/2,s.y-s.size/2,s.size,s.size);
 
-        // Boss
         if(boss){ ctx.fillStyle="purple"; ctx.fillRect(boss.x-boss.size/2,boss.y-boss.size/2,boss.size,boss.size); }
-
-        // Mega coins
         ctx.fillStyle="gold"; for(let c of megaCoins){ ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
 
         // UI
         ctx.fillStyle="white";
         ctx.font = "16px Arial";
-        ctx.fillText("Score:"+Math.floor(score),10,20);
-        ctx.fillText("High Score:"+highScore,10,40);
-        ctx.fillText("Coins:"+totalCoins,10,60);
-        ctx.fillText("Ability:"+ability,10,80);
-        ctx.fillText("PowerUps:"+Object.keys(activeEffects).join(","),10,100);
-        if(ability==="gun") ctx.fillText("Gun CD: "+Math.max(0,Math.floor(gunCooldown/60))+"s",10,120);
+        ctx.fillText("Score: " + Math.floor(score), 10, 20);
+        ctx.fillText("High Score: " + highScore, 10, 40);
+        ctx.fillText("Coins: " + totalCoins, 10, 60);
+        ctx.fillText("Ability: " + ability, 10, 80);
+        ctx.fillText("PowerUps: " + Object.keys(activeEffects).join(","), 10, 100);
+        if(ability === "gun") ctx.fillText("Gun CD: " + Math.max(0, Math.floor(gunCooldown/60)) + "s", 10, 120);
     }
 
-    if(state==="menu"){ ctx.fillStyle="white"; ctx.font="30px Arial"; ctx.fillText("Wave Survival",300,150); ctx.font="20px Arial"; ctx.fillText("S Shop | K Abilities | C Skins",200,220); }
+    if(state==="menu"){
+        ctx.fillStyle="white";
+        ctx.font="30px Arial";
+        ctx.fillText("Wave Survival",300,150);
+        ctx.font="20px Arial";
+        ctx.fillText("S Shop | K Abilities | C Skins",200,220);
+        ctx.fillText("High Score: " + highScore, 350, 260);
+    }
+
     if(state==="gameover"){ ctx.fillStyle="white"; ctx.fillText("Game Over",350,200); ctx.fillText("Press R to Restart",320,240); }
     if(state==="shop"){ ctx.fillStyle="white"; ctx.fillText("Shop",400,120); }
     if(state==="abilities"){ ctx.fillText("Abilities",380,120); }
@@ -358,14 +358,21 @@ function setupShop(){
     createMenuButton("Buy Slow 60",300,210,()=>{ if(totalCoins>=60){ ownedAbilities.slow=true; totalCoins-=60; save(); } });
     createMenuButton("Buy Gun 150",300,240,()=>{ if(totalCoins>=150){ ownedAbilities.gun=true; totalCoins-=150; save(); setupShop(); } });
 
-    let y=280;
-    for(let sk in skins){
-        if(!skins[sk]){
-            createMenuButton(`Buy ${sk} ${skinPrices[sk]}`,300,y,()=>{ 
-                if(totalCoins>=skinPrices[sk]){ skins[sk]=true; totalCoins-=skinPrices[sk]; save(); setupShop(); } 
+    let y = 280;
+    for (let sk in skins) {
+        if (!skins[sk]) {
+            createMenuButton(`Buy ${sk} ${skinPrices[sk]}`, 300, y, () => {
+                if (totalCoins >= skinPrices[sk]) {
+                    skins[sk] = true;
+                    totalCoins -= skinPrices[sk];
+                    save();
+                    setupShop();
+                }
             });
-            y+=30;
+        } else {
+            createMenuButton(`${sk} (selected)`, 300, y, () => { selectedSkin = sk; });
         }
+        y += 30;
     }
 }
 
