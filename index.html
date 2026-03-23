@@ -72,7 +72,7 @@ function resetGame(){
     // Ability effects
     if(ability==="speed") player.speed = 6;
     if(ability==="slow") player.speed = 3; // slower movement
-    if(ability==="shield") player.shield = 1;
+    if(ability==="shield") player.shield = 2;
     // Magnet doesn't affect speed
 
     saws=[]; coins=[]; particles=[]; score=0; frame=0; difficulty=1;
@@ -166,8 +166,8 @@ function draw(){
 // ===== MENUS =====
 function setupShop(){ clearButtons();
     // Abilities
-    createMenuButton("Buy Magnet 50",300,150,()=>{if(totalCoins>=50){ownedAbilities.magnet=true; totalCoins-=50; save();}});
-    createMenuButton("Buy Shield 70",300,180,()=>{if(totalCoins>=70){ownedAbilities.shield=true; totalCoins-=70; save();}});
+    createMenuButton("Buy Magnet 100",300,150,()=>{if(totalCoins>=50){ownedAbilities.magnet=true; totalCoins-=50; save();}});
+    createMenuButton("Buy Shield 50",300,180,()=>{if(totalCoins>=70){ownedAbilities.shield=true; totalCoins-=70; save();}});
     createMenuButton("Buy Slow 60",300,210,()=>{if(totalCoins>=60){ownedAbilities.slow=true; totalCoins-=60; save();}});
     // Skins
     let y=250;
