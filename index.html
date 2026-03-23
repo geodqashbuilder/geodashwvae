@@ -166,8 +166,8 @@ function draw(){
 // ===== MENUS =====
 function setupShop(){ clearButtons();
     // Abilities
-    createMenuButton("Buy Magnet 100",300,150,()=>{if(totalCoins>=50){ownedAbilities.magnet=true; totalCoins-=50; save();}});
-    createMenuButton("Buy Shield 50",300,180,()=>{if(totalCoins>=70){ownedAbilities.shield=true; totalCoins-=70; save();}});
+    createMenuButton("Buy Magnet 100",300,150,()=>{if(totalCoins>=100){ownedAbilities.magnet=true; totalCoins-=50; save();}});
+    createMenuButton("Buy Shield 50",300,180,()=>{if(totalCoins>=50){ownedAbilities.shield=true; totalCoins-=70; save();}});
     createMenuButton("Buy Slow 60",300,210,()=>{if(totalCoins>=60){ownedAbilities.slow=true; totalCoins-=60; save();}});
     // Skins
     let y=250;
