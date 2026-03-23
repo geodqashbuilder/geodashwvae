@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wave Survival - Powerups + Mobile</title>
+<title>Wave Survival - Powerups + Mobile + High Score + Skins</title>
 <style>
 body{margin:0;background:#000;overflow:hidden;font-family:Arial;}
 canvas{display:block;margin:auto;background:#111;}
@@ -32,14 +32,34 @@ let totalCoins = +localStorage.getItem("coins")||0;
 let ownedAbilities = JSON.parse(localStorage.getItem("ownedAbilities"))||{speed:true,magnet:false,shield:false,slow:false,gun:false};
 let ability = "speed";
 
-let skins = JSON.parse(localStorage.getItem("skins"))||{default:true,red:false,green:false};
-let skinPrices = {red:50, green:100};
+let skins = JSON.parse(localStorage.getItem("skins")) || {
+    default: true,
+    red: false,
+    green: false,
+    blue: false,
+    yellow: false,
+    purple: false,
+    orange: false
+};
+
+let skinPrices = {
+    red: 50,
+    green: 100,
+    blue: 75,
+    yellow: 125,
+    purple: 150,
+    orange: 200
+};
+
 let selectedSkin = Object.keys(skins).find(k=>skins[k]);
+
+let highScore = +localStorage.getItem("highScore") || 0;
 
 function save(){
     localStorage.setItem("coins", totalCoins);
     localStorage.setItem("ownedAbilities", JSON.stringify(ownedAbilities));
     localStorage.setItem("skins", JSON.stringify(skins));
+    localStorage.setItem("highScore", highScore);
 }
 
 // ===== BUTTONS =====
@@ -129,11 +149,14 @@ let gunCooldown = 0; // frames until next shot
 function update(){
     if(state!=="game") return;
 
-    frame++; score+=0.5; difficulty=1+score/80;
+    frame++; 
+    score += 0.5;
+    if(score > highScore) highScore = Math.floor(score); // update high score
+    difficulty = 1 + score/80;
 
     let speedMultiplier = 1;
-    if(activeEffects.speed) speedMultiplier = 1.8;
-    if(activeEffects.slow) speedMultiplier = 0.6;
+    if(activeEffects.speed) speedMultiplier *= 1.8;
+    if(activeEffects.slow) speedMultiplier *= 0.6;
 
     player.y += goingUp ? -player.speed * speedMultiplier : player.speed * speedMultiplier;
 
@@ -235,19 +258,13 @@ function update(){
     // ===== MEGA COINS HOMING =====
     for(let i=megaCoins.length-1;i>=0;i--){
         let c = megaCoins[i];
-
-        // Vector toward player
         let dx = player.x - c.x;
         let dy = player.y - c.y;
         let dist = Math.hypot(dx, dy);
-        if(dist < 1) dist = 1; // avoid division by zero
-
-        // Move toward player
+        if(dist < 1) dist = 1; 
         let speed = 4;
         c.x += (dx / dist) * speed;
         c.y += (dy / dist) * speed;
-
-        // Collect
         if(dist < player.size + c.r){
             totalCoins += c.value;
             burst(c.x, c.y);
@@ -280,8 +297,15 @@ function draw(){
     ctx.fillStyle="#111"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
     if(state==="game"||state==="gameover"){
-        let color="white"; if(selectedSkin==="red") color="red"; else if(selectedSkin==="green") color="green";
+        let color="white"; 
+        if(selectedSkin==="red") color="red"; 
+        else if(selectedSkin==="green") color="green";
+        else if(selectedSkin==="blue") color="blue";
+        else if(selectedSkin==="yellow") color="yellow";
+        else if(selectedSkin==="purple") color="purple";
+        else if(selectedSkin==="orange") color="orange";
         ctx.fillStyle=color; ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
+
         if(player.shield>0){ ctx.strokeStyle="blue"; ctx.beginPath(); ctx.arc(player.x,player.y,20,0,Math.PI*2); ctx.stroke(); }
 
         ctx.fillStyle="red"; for(let s of saws){ ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
@@ -308,11 +332,13 @@ function draw(){
 
         // UI
         ctx.fillStyle="white";
+        ctx.font = "16px Arial";
         ctx.fillText("Score:"+Math.floor(score),10,20);
-        ctx.fillText("Coins:"+totalCoins,10,40);
-        ctx.fillText("Ability:"+ability,10,60);
-        ctx.fillText("PowerUps:"+Object.keys(activeEffects).join(","),10,80);
-        if(ability==="gun") ctx.fillText("Gun CD: "+Math.max(0,Math.floor(gunCooldown/60))+"s",10,100);
+        ctx.fillText("High Score:"+highScore,10,40);
+        ctx.fillText("Coins:"+totalCoins,10,60);
+        ctx.fillText("Ability:"+ability,10,80);
+        ctx.fillText("PowerUps:"+Object.keys(activeEffects).join(","),10,100);
+        if(ability==="gun") ctx.fillText("Gun CD: "+Math.max(0,Math.floor(gunCooldown/60))+"s",10,120);
     }
 
     if(state==="menu"){ ctx.fillStyle="white"; ctx.font="30px Arial"; ctx.fillText("Wave Survival",300,150); ctx.font="20px Arial"; ctx.fillText("S Shop | K Abilities | C Skins",200,220); }
@@ -335,7 +361,9 @@ function setupShop(){
     let y=280;
     for(let sk in skins){
         if(!skins[sk]){
-            createMenuButton(`Buy ${sk} ${skinPrices[sk]}`,300,y,()=>{ if(totalCoins>=skinPrices[sk]){ skins[sk]=true; totalCoins-=skinPrices[sk]; save(); setupShop(); } });
+            createMenuButton(`Buy ${sk} ${skinPrices[sk]}`,300,y,()=>{ 
+                if(totalCoins>=skinPrices[sk]){ skins[sk]=true; totalCoins-=skinPrices[sk]; save(); setupShop(); } 
+            });
             y+=30;
         }
     }
