@@ -87,7 +87,7 @@ function resetGame(){
     score=0; frame=0; difficulty=1;
     gunCooldown = 0;
 
-    trail = []; // Reset trail
+    trail = []; // reset trail
 }
 
 // ===== INPUT =====
@@ -208,7 +208,80 @@ function update(){
         if(b && b.x>canvas.width+50) bullets.splice(i,1);
     }
 
-    // ... keep rest of original update logic (boss, spikes, coins, powerups, particles) ...
+    // ===== BOSS SPAWN & LOGIC =====
+    if(score>=1000 && Math.floor(score) % 1000 === 0 && boss === null){
+        boss = {x: canvas.width+100, y: canvas.height/2, size:40, timer:600, vy: 2};
+    }
+
+    if(boss){
+        boss.x -= 1;
+        boss.y += boss.vy;
+        if(boss.y < boss.size/2 || boss.y > canvas.height-boss.size/2) boss.vy *= -1;
+        
+        if(frame % 60 === 0){
+            spikes.push({x: boss.x - 20, y: boss.y, vx: -5, vy: 0, size:8});
+        }
+
+        boss.timer--;
+        if(boss.timer <= 0){
+            bombs.push({x: boss.x, y: boss.y, size:30, vx:0, vy:0});
+            megaCoins.push({x: boss.x, y: boss.y, r:10, value:25});
+            boss = null;
+        }
+    }
+
+    // ===== SPIKES =====
+    for(let i=spikes.length-1;i>=0;i--){
+        let s=spikes[i]; s.x += s.vx; s.y += s.vy;
+        if(Math.hypot(s.x-player.x,s.y-player.y)<s.size+player.size){
+            if(player.shield>0 || activeEffects.shield){
+                if(player.shield>0) player.shield--;
+                burst(player.x,player.y);
+                spikes.splice(i,1);
+                continue;
+            }
+            play(100,0.2);
+            state="gameover";
+        }
+        if(s.x<-50) spikes.splice(i,1);
+    }
+
+    // ===== MEGA COINS HOMING =====
+    for(let i=megaCoins.length-1;i>=0;i--){
+        let c = megaCoins[i];
+        let dx = player.x - c.x;
+        let dy = player.y - c.y;
+        let dist = Math.hypot(dx, dy);
+        if(dist < 1) dist = 1; 
+        let speed = 4;
+        c.x += (dx / dist) * speed;
+        c.y += (dy / dist) * speed;
+        if(dist < player.size + c.r){
+            totalCoins += c.value;
+            burst(c.x, c.y);
+            megaCoins.splice(i,1);
+            play(900,0.05);
+        }
+    }
+
+    // ===== COINS =====
+    for(let i=coins.length-1;i>=0;i--){
+        let c=coins[i]; let dx=player.x-c.x, dy=player.y-c.y, dist=Math.hypot(dx,dy);
+        if((ability==="magnet" || activeEffects.magnet) && dist<150){ c.x+=dx*0.08; c.y+=dy*0.08; } else c.x-=4;
+        if(dist<c.r+player.size){ totalCoins++; burst(c.x,c.y); coins.splice(i,1); play(700,0.05); }
+        if(c.x<-50) coins.splice(i,1);
+    }
+
+    // ===== POWERUPS =====
+    for(let i=powerUps.length-1;i>=0;i--){
+        let p = powerUps[i]; p.x -= 4;
+        let dx = player.x - p.x, dy = player.y - p.y, dist = Math.hypot(dx,dy);
+        if(dist < p.r + player.size){ activatePowerUp(p.type); burst(p.x,p.y); play(500,0.1); powerUps.splice(i,1); continue; }
+        if(p.x < -50) powerUps.splice(i,1);
+    }
+
+    // ===== PARTICLES =====
+    for(let i=particles.length-1;i>=0;i--){ let p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.life--; if(p.life<=0) particles.splice(i,1); }
 
     save();
 }
@@ -219,7 +292,7 @@ function draw(){
 
     if(state==="game"||state==="gameover"){
 
-        // ===== DRAW TRAIL =====
+        // ===== TRAIL =====
         if(trail.length>1){
             ctx.beginPath();
             ctx.moveTo(trail[0].x, trail[0].y);
@@ -239,19 +312,86 @@ function draw(){
         ctx.fillStyle=color;
         ctx.fillRect(player.x-player.size, player.y-player.size, 20, 20);
 
-        // ===== REST OF DRAW LOGIC =====
-        // Saw, coins, powerups, bullets, spikes, boss, megaCoins, UI
-        // (keep your original drawing code for them)
+        // ===== SHIELD =====
+        if(player.shield>0){ ctx.strokeStyle="blue"; ctx.beginPath(); ctx.arc(player.x,player.y,20,0,Math.PI*2); ctx.stroke(); }
+
+        // ===== SAWS =====
+        ctx.fillStyle="red"; for(let s of saws){ ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
+        // ===== COINS =====
+        ctx.fillStyle="gold"; for(let c of coins){ ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
+        // ===== POWERUPS =====
+        for(let p of powerUps){
+            ctx.fillStyle=(p.type==="speed")?"cyan":(p.type==="magnet")?"purple":(p.type==="shield")?"blue":"lightgreen";
+            ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+        }
+        // ===== PARTICLES =====
+        ctx.fillStyle="yellow"; for(let p of particles) ctx.fillRect(p.x,p.y,2,2);
+        // ===== BULLETS =====
+        ctx.fillStyle="darkred"; for(let b of bullets) ctx.fillRect(b.x-b.size/2,b.y-b.size/2,b.size,b.size);
+        // ===== SPIKES =====
+        ctx.fillStyle="#00FF00"; for(let s of spikes) ctx.fillRect(s.x-s.size/2,s.y-s.size/2,s.size,s.size);
+        // ===== BOSS =====
+        if(boss){ ctx.fillStyle="purple"; ctx.fillRect(boss.x-boss.size/2,boss.y-boss.size/2,boss.size,boss.size); }
+        // ===== MEGA COINS =====
+        ctx.fillStyle="gold"; for(let c of megaCoins){ ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
+
+        // ===== UI =====
+        ctx.fillStyle="white";
+        ctx.font = "16px Arial";
+        ctx.fillText("Score: " + Math.floor(score), 10, 20);
+        ctx.fillText("High Score: " + highScore, 10, 40);
+        ctx.fillText("Coins: " + totalCoins, 10, 60);
+        ctx.fillText("Ability: " + ability, 10, 80);
+        ctx.fillText("PowerUps: " + Object.keys(activeEffects).join(","), 10, 100);
+        if(ability === "gun") ctx.fillText("Gun CD: " + Math.max(0, Math.floor(gunCooldown/60)) + "s", 10, 120);
     }
 
-    // Menu/gameover/shop/abilities/skins drawing stays the same
+    if(state==="menu"){
+        ctx.fillStyle="white";
+        ctx.font="30px Arial";
+        ctx.fillText("Wave Survival",300,150);
+        ctx.font="20px Arial";
+        ctx.fillText("S Shop | K Abilities | C Skins",200,220);
+        ctx.fillText("High Score: " + highScore, 350, 260);
+    }
+
+    if(state==="gameover"){ ctx.fillStyle="white"; ctx.fillText("Game Over",350,200); ctx.fillText("Press R to Restart",320,240); }
+    if(state==="shop"){ ctx.fillStyle="white"; ctx.fillText("Shop",400,120); }
+    if(state==="abilities"){ ctx.fillText("Abilities",380,120); }
+    if(state==="skins"){ ctx.fillText("Skins",400,120); }
 }
 
 // ===== MENU & SHOP =====
 function setupMenu(){ clearButtons(); createMenuButton("START",400,260,()=>{ state="game"; resetGame(); clearButtons(); }); }
-function setupShop(){ /* same as original */ }
-function setupAbilities(){ /* same as original */ }
-function setupSkins(){ /* same as original */ }
+function setupShop(){
+    clearButtons();
+    createMenuButton("Buy Magnet 100",300,150,()=>{ if(totalCoins>=100){ ownedAbilities.magnet=true; totalCoins-=100; save(); } });
+    createMenuButton("Buy Shield 50",300,180,()=>{ if(totalCoins>=50){ ownedAbilities.shield=true; totalCoins-=50; save(); } });
+    createMenuButton("Buy Slow 60",300,210,()=>{ if(totalCoins>=60){ ownedAbilities.slow=true; totalCoins-=60; save(); } });
+    createMenuButton("Buy Gun 150",300,240,()=>{ if(totalCoins>=150){ ownedAbilities.gun=true; totalCoins-=150; save(); setupShop(); } });
+
+    let y=280;
+    for(let sk in skins){
+        createMenuButton(sk+(skins[sk]?" (selected)":" (LOCKED)"),300,y,()=>{ if(skins[sk]) selectedSkin=sk; });
+        y+=30;
+    }
+}
+function setupAbilities(){
+    clearButtons();
+    let y=150;
+    for(let ab in ownedAbilities){
+        createMenuButton(ab+(ownedAbilities[ab]?" (owned)":" (LOCKED)"),300,y,()=>{ if(ownedAbilities[ab]){ ability=ab; resetGame(); } });
+        y+=30;
+    }
+}
+function setupSkins(){
+    clearButtons();
+    let y=150;
+    for(let sk in skins){
+        createMenuButton(sk+(skins[sk]?" (selected)":" (LOCKED)"),300,y,()=>{ if(skins[sk]) selectedSkin=sk; });
+        y+=30;
+    }
+}
 
 // ===== LOOP =====
 function loop(){ update(); draw(); requestAnimationFrame(loop); }
