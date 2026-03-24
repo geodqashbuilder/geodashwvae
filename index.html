@@ -24,12 +24,12 @@ let state = "menu";
 let player, saws=[], coins=[], particles=[], bullets=[], spikes=[], bombs=[], megaCoins=[];
 let powerUps=[], activeEffects={};
 
-// ===== TRAIL =====
-let trail = [];
-const MAX_TRAIL = 300; // Max trail segments
-
 let goingUp=false, score=0, frame=0, difficulty=1;
 let boss = null;
+
+// ===== TRAIL =====
+let trail = [];
+const MAX_TRAIL = 45;
 
 // ===== SAVE =====
 let totalCoins = +localStorage.getItem("coins")||0;
@@ -85,9 +85,10 @@ function resetGame(){
     boss = null;
 
     score=0; frame=0; difficulty=1;
+
     gunCooldown = 0;
 
-    trail = []; // reset trail
+    trail = []; // clear trail
 }
 
 // ===== INPUT =====
@@ -116,7 +117,7 @@ function spawnCoin(){ coins.push({x:canvas.width+40,y:Math.random()*(canvas.heig
 function spawnPowerUp(){
     const types = ["speed","magnet","shield","slow"];
     let type = types[Math.floor(Math.random()*types.length)];
-    powerUps.push({x: canvas.width+40, y: Math.random()*(canvas.height-40)+20, r: 8, type});
+    powerUps.push({x: canvas.width+40, y: Math.random()*(canvas.height-40)+20, r: 8, type: type});
 }
 
 // ===== PARTICLES =====
@@ -154,10 +155,6 @@ function update(){
 
     player.y=Math.max(player.size, Math.min(canvas.height-player.size,player.y));
 
-    // ===== TRAIL UPDATE =====
-    trail.push({x: player.x, y: player.y});
-    if(trail.length > MAX_TRAIL) trail.shift();
-
     let rate = Math.max(25, 90-difficulty*5);
     if(ability==="slow") rate *= 1.3;
 
@@ -165,7 +162,6 @@ function update(){
     if(frame%110===0) spawnCoin();
     if(frame % 1500 === 0) spawnPowerUp(); 
 
-    // ===== SAWS =====
     for(let i=saws.length-1;i>=0;i--){
         let s=saws[i];
         s.x -= s.speed*(ability==="slow"?0.6:1);
@@ -264,7 +260,6 @@ function update(){
         }
     }
 
-    // ===== COINS =====
     for(let i=coins.length-1;i>=0;i--){
         let c=coins[i]; let dx=player.x-c.x, dy=player.y-c.y, dist=Math.hypot(dx,dy);
         if((ability==="magnet" || activeEffects.magnet) && dist<150){ c.x+=dx*0.08; c.y+=dy*0.08; } else c.x-=4;
@@ -272,7 +267,6 @@ function update(){
         if(c.x<-50) coins.splice(i,1);
     }
 
-    // ===== POWERUPS =====
     for(let i=powerUps.length-1;i>=0;i--){
         let p = powerUps[i]; p.x -= 4;
         let dx = player.x - p.x, dy = player.y - p.y, dist = Math.hypot(dx,dy);
@@ -280,8 +274,11 @@ function update(){
         if(p.x < -50) powerUps.splice(i,1);
     }
 
-    // ===== PARTICLES =====
     for(let i=particles.length-1;i>=0;i--){ let p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.life--; if(p.life<=0) particles.splice(i,1); }
+
+    // ===== TRAIL UPDATE =====
+    trail.push({x: player.x, y: player.y});
+    if(trail.length > MAX_TRAIL) trail.shift();
 
     save();
 }
@@ -290,52 +287,49 @@ function update(){
 function draw(){
     ctx.fillStyle="#111"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    if(state==="game"||state==="gameover"){
-
-        // ===== TRAIL =====
-        if(trail.length>1){
+    // ===== TRAIL DRAW =====
+    if(trail.length>1){
+        for(let i=1;i<trail.length;i++){
+            let p0 = trail[i-1];
+            let p1 = trail[i];
+            let offsetX = (trail.length-i) * 2; // move trail behind player
             ctx.beginPath();
-            ctx.moveTo(trail[0].x, trail[0].y);
-            for(let i=1;i<trail.length;i++){
-                ctx.lineTo(trail[i].x, trail[i].y);
-            }
-            ctx.strokeStyle = selectedSkin==="red"?"red":selectedSkin==="green"?"lime":"white";
-            ctx.lineWidth = 4;
-            ctx.shadowBlur = 12;
-            ctx.shadowColor = ctx.strokeStyle;
+            ctx.moveTo(p0.x - offsetX, p0.y);
+            ctx.lineTo(p1.x - offsetX, p1.y);
+            let alpha = i / trail.length;
+            ctx.strokeStyle = selectedSkin==="red"?"rgba(255,0,0,"+alpha+")":
+                              selectedSkin==="green"?"rgba(0,255,0,"+alpha+")":
+                              "rgba(255,255,255,"+alpha+")";
+            ctx.lineWidth = 6;
             ctx.stroke();
-            ctx.shadowBlur = 0;
         }
+    }
 
-        // ===== PLAYER =====
-        let color = selectedSkin==="red"?"red":selectedSkin==="green"?"green":"white";
-        ctx.fillStyle=color;
-        ctx.fillRect(player.x-player.size, player.y-player.size, 20, 20);
+    if(state==="game"||state==="gameover"){
+        let color="white"; 
+        if(selectedSkin==="red") color="red"; 
+        else if(selectedSkin==="green") color="green";
+        ctx.fillStyle=color; ctx.fillRect(player.x-player.size,player.y-player.size,20,20);
 
-        // ===== SHIELD =====
         if(player.shield>0){ ctx.strokeStyle="blue"; ctx.beginPath(); ctx.arc(player.x,player.y,20,0,Math.PI*2); ctx.stroke(); }
 
-        // ===== SAWS =====
         ctx.fillStyle="red"; for(let s of saws){ ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
-        // ===== COINS =====
         ctx.fillStyle="gold"; for(let c of coins){ ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
-        // ===== POWERUPS =====
+
         for(let p of powerUps){
             ctx.fillStyle=(p.type==="speed")?"cyan":(p.type==="magnet")?"purple":(p.type==="shield")?"blue":"lightgreen";
             ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
         }
-        // ===== PARTICLES =====
+
         ctx.fillStyle="yellow"; for(let p of particles) ctx.fillRect(p.x,p.y,2,2);
-        // ===== BULLETS =====
+
         ctx.fillStyle="darkred"; for(let b of bullets) ctx.fillRect(b.x-b.size/2,b.y-b.size/2,b.size,b.size);
-        // ===== SPIKES =====
         ctx.fillStyle="#00FF00"; for(let s of spikes) ctx.fillRect(s.x-s.size/2,s.y-s.size/2,s.size,s.size);
-        // ===== BOSS =====
+
         if(boss){ ctx.fillStyle="purple"; ctx.fillRect(boss.x-boss.size/2,boss.y-boss.size/2,boss.size,boss.size); }
-        // ===== MEGA COINS =====
         ctx.fillStyle="gold"; for(let c of megaCoins){ ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
 
-        // ===== UI =====
+        // UI
         ctx.fillStyle="white";
         ctx.font = "16px Arial";
         ctx.fillText("Score: " + Math.floor(score), 10, 20);
@@ -363,6 +357,7 @@ function draw(){
 
 // ===== MENU & SHOP =====
 function setupMenu(){ clearButtons(); createMenuButton("START",400,260,()=>{ state="game"; resetGame(); clearButtons(); }); }
+
 function setupShop(){
     clearButtons();
     createMenuButton("Buy Magnet 100",300,150,()=>{ if(totalCoins>=100){ ownedAbilities.magnet=true; totalCoins-=100; save(); } });
@@ -376,6 +371,7 @@ function setupShop(){
         y+=30;
     }
 }
+
 function setupAbilities(){
     clearButtons();
     let y=150;
@@ -384,6 +380,7 @@ function setupAbilities(){
         y+=30;
     }
 }
+
 function setupSkins(){
     clearButtons();
     let y=150;
